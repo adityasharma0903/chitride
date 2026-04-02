@@ -5,6 +5,7 @@ import type { RideRequest } from "@/context/RideContext";
 
 export interface Ride {
   id: string;
+  ownerId?: string;
   driverName: string;
   driverEmail?: string;
   driverPhone?: string;

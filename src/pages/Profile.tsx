@@ -9,12 +9,11 @@ const Profile = () => {
   const { currentUser, rides, requests } = useRideContext();
 
   const myPostedRides = rides.filter(
-    (r) =>
-      r.driverEmail === currentUser.email ||
-      r.driverName === currentUser.name ||
-      r.avatar === (currentUser.name || "Y").slice(0, 2).toUpperCase()
+    (r) => (currentUser.id && r.ownerId === currentUser.id) || r.driverEmail === currentUser.email
   );
-  const myRequests = requests.filter((r) => r.requesterEmail === currentUser.email);
+  const myRequests = requests.filter(
+    (r) => (currentUser.id && r.requesterId === currentUser.id) || r.requesterEmail === currentUser.email
+  );
   const myBookedRides = myRequests.filter((r) => r.status !== "rejected");
 
   const handleLogout = async () => {

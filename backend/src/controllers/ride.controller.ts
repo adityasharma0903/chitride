@@ -22,6 +22,7 @@ const toRidePayload = (ride: RideDocument, includeImage = false) => ({
 
 const mapRidePayload = (ride: RideDocument, includeImage = false) => ({
   id: String(ride._id),
+  ownerId: String(ride.owner),
   driverName: (toRidePayload(ride).ownerSnapshot.name || "Driver").trim(),
   driverEmail: toRidePayload(ride).ownerSnapshot.email,
   driverPhone: toRidePayload(ride).ownerSnapshot.phone,

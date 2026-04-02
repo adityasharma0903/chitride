@@ -11,8 +11,10 @@ import { ApiError, apiRequest } from "@/lib/api";
 export interface RideRequest {
   id: string;
   rideId: string;
+  rideOwnerId?: string;
   rideOwnerEmail?: string;
   rideOwnerName: string;
+  requesterId?: string;
   requesterName: string;
   requesterEmail: string;
   seatsRequested: number;
@@ -291,12 +293,17 @@ export const RideProvider = ({ children }: { children: React.ReactNode }) => {
 
   const getRequestForRide = useCallback(
     (rideId: string) =>
-      requests.find((r) => r.rideId === rideId && r.requesterEmail === currentUser.email),
+      requests.find(
+        (r) => r.rideId === rideId && ((currentUser?.id && r.requesterId === currentUser.id) || r.requesterEmail === currentUser?.email)
+      ),
     [requests, currentUser]
   );
 
   const getRequestsForMyRides = useCallback(
-    () => requests.filter((request) => request.rideOwnerEmail === currentUser.email),
+    () =>
+      requests.filter(
+        (request) => (currentUser?.id && request.rideOwnerId === currentUser.id) || request.rideOwnerEmail === currentUser?.email
+      ),
     [requests, currentUser]
   );
 

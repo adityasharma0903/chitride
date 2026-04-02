@@ -25,8 +25,10 @@ const toRequestPayload = (request: RideRequestDocument, ride?: RideDocument) => 
 const mapRequestPayload = (request: RideRequestDocument, ride?: RideDocument) => ({
   id: String(request._id),
   rideId: String(request.ride),
+  rideOwnerId: String(request.rideOwner),
   rideOwnerEmail: toRequestPayload(request, ride).rideSnapshot.email,
   rideOwnerName: toRequestPayload(request, ride).rideSnapshot.name,
+  requesterId: String(request.requester),
   requesterName: toRequestPayload(request, ride).requesterSnapshot.name,
   requesterEmail: toRequestPayload(request, ride).requesterSnapshot.email,
   seatsRequested: request.seatsRequested,
