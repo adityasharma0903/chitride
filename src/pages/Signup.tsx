@@ -61,7 +61,7 @@ const Signup = () => {
       return;
     }
 
-    apiRequest<{ success: boolean; message: string; data: { email: string } }>("/auth/signup/request-otp", {
+    apiRequest<{ success: boolean; message: string; data: { email: string; devOtp?: string } }>("/auth/signup/request-otp", {
       method: "POST",
       body: JSON.stringify({
         name: name.trim(),
@@ -72,11 +72,15 @@ const Signup = () => {
         year,
       }),
     })
-      .then(() => {
+      .then((response) => {
         setEmail(normalizedEmail);
         setPhone(normalizedPhone);
         setStep("otp");
-        toast.success("OTP sent to your email.");
+        if (response.data.devOtp) {
+          toast.success(`Dev OTP: ${response.data.devOtp}`);
+        } else {
+          toast.success("OTP sent to your email.");
+        }
       })
       .catch((apiError: unknown) => {
         setError(apiError instanceof Error ? apiError.message : "Failed to send OTP");

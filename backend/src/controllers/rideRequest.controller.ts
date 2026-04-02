@@ -34,7 +34,9 @@ const mapRequestPayload = (request: RideRequestDocument, ride?: RideDocument) =>
 });
 
 const fetchRideMap = async (rideIds: string[]) => {
-  const rides = await RideModel.find({ _id: { $in: rideIds } }).lean();
+  const rides = await RideModel.find({ _id: { $in: rideIds } })
+    .select("ownerSnapshot from to")
+    .lean();
   const map = new Map<string, RideDocument>();
   rides.forEach((ride) => map.set(String(ride._id), ride as RideDocument));
   return map;

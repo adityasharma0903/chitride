@@ -35,17 +35,21 @@ const Login = () => {
       return;
     }
 
-    apiRequest<{ success: boolean; message: string; data: { email: string } }>("/auth/login/request-otp", {
+    apiRequest<{ success: boolean; message: string; data: { email: string; devOtp?: string } }>("/auth/login/request-otp", {
       method: "POST",
       body: JSON.stringify({
         email: normalizedEmail,
         password,
       }),
     })
-      .then(() => {
+      .then((response) => {
         setEmail(normalizedEmail);
         setOtpStep(true);
-        toast.success("OTP sent to your email.");
+        if (response.data.devOtp) {
+          toast.success(`Dev OTP: ${response.data.devOtp}`);
+        } else {
+          toast.success("OTP sent to your email.");
+        }
       })
       .catch((apiError: unknown) => {
         setError(apiError instanceof Error ? apiError.message : "Failed to send OTP");

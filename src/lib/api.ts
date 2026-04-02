@@ -11,13 +11,21 @@ export class ApiError extends Error {
   }
 }
 
-const refreshSession = async () => {
-  const response = await fetch(`${API_BASE}/auth/refresh`, {
-    method: "POST",
-    credentials: "include",
-  });
+let refreshPromise: Promise<boolean> | null = null;
 
-  return response.ok;
+const refreshSession = async () => {
+  if (!refreshPromise) {
+    refreshPromise = fetch(`${API_BASE}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+    })
+      .then((response) => response.ok)
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+
+  return refreshPromise;
 };
 
 export const apiRequest = async <T>(
@@ -40,7 +48,14 @@ export const apiRequest = async <T>(
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    if (response.status === 401 && !didRetry && path !== "/auth/refresh") {
+    const shouldTryRefresh =
+      response.status === 401 &&
+      !didRetry &&
+      path !== "/auth/refresh" &&
+      !path.startsWith("/auth/login") &&
+      !path.startsWith("/auth/signup");
+
+    if (shouldTryRefresh) {
       const refreshed = await refreshSession();
       if (refreshed) {
         return apiRequest<T>(path, init, true);

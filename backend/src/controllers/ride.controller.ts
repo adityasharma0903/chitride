@@ -9,7 +9,7 @@ import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
 
 const paramToString = (value: unknown) => (typeof value === "string" ? value : "");
 
-const toRidePayload = (ride: RideDocument) => ({
+const toRidePayload = (ride: RideDocument, includeImage = false) => ({
   ownerSnapshot: ride.ownerSnapshot || {
     name: "Driver",
     email: "",
@@ -19,7 +19,7 @@ const toRidePayload = (ride: RideDocument) => ({
   },
 });
 
-const mapRidePayload = (ride: RideDocument) => ({
+const mapRidePayload = (ride: RideDocument, includeImage = false) => ({
   id: String(ride._id),
   driverName: (toRidePayload(ride).ownerSnapshot.name || "Driver").trim(),
   driverEmail: toRidePayload(ride).ownerSnapshot.email,
@@ -28,7 +28,7 @@ const mapRidePayload = (ride: RideDocument) => ({
   driverYear: toRidePayload(ride).ownerSnapshot.year,
   carModel: ride.carModel,
   carNumberPlate: ride.carNumberPlate,
-  carImageUrl: ride.carImageUrl,
+  carImageUrl: includeImage ? ride.carImageUrl : "",
   from: ride.from,
   to: ride.to,
   date: ride.date,
@@ -62,11 +62,14 @@ export const getRides = asyncHandler(async (req: AuthenticatedRequest, res: Resp
     query.pricePerSeat = { $lte: Number(maxPrice) };
   }
 
-  const rides = await RideModel.find(query).sort({ createdAt: -1 }).lean();
+  const rides = await RideModel.find(query)
+    .select("ownerSnapshot from to date departureTime arrivalTime pricePerSeat seatsAvailable carModel carNumberPlate createdAt")
+    .sort({ createdAt: -1 })
+    .lean();
 
   res.status(200).json({
     success: true,
-    data: rides.map((ride) => mapRidePayload(ride as RideDocument)),
+    data: rides.map((ride) => mapRidePayload(ride as RideDocument, false)),
   });
 });
 
@@ -81,7 +84,7 @@ export const getRideById = asyncHandler(async (req: AuthenticatedRequest, res: R
     throw new AppError("Ride not found", 404);
   }
 
-  res.status(200).json({ success: true, data: mapRidePayload(ride as RideDocument) });
+  res.status(200).json({ success: true, data: mapRidePayload(ride as RideDocument, true) });
 });
 
 export const getMyRides = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
@@ -89,11 +92,14 @@ export const getMyRides = asyncHandler(async (req: AuthenticatedRequest, res: Re
     throw new AppError("Unauthorized", 401);
   }
 
-  const rides = await RideModel.find({ owner: req.user.id }).sort({ createdAt: -1 }).lean();
+  const rides = await RideModel.find({ owner: req.user.id })
+    .select("ownerSnapshot from to date departureTime arrivalTime pricePerSeat seatsAvailable carModel carNumberPlate createdAt")
+    .sort({ createdAt: -1 })
+    .lean();
 
   res.status(200).json({
     success: true,
-    data: rides.map((ride) => mapRidePayload(ride as RideDocument)),
+    data: rides.map((ride) => mapRidePayload(ride as RideDocument, false)),
   });
 });
 
@@ -136,6 +142,6 @@ export const createRide = asyncHandler(async (req: AuthenticatedRequest, res: Re
   res.status(201).json({
     success: true,
     message: "Ride posted successfully",
-    data: mapRidePayload(ride.toObject() as RideDocument),
+    data: mapRidePayload(ride.toObject() as RideDocument, false),
   });
 });

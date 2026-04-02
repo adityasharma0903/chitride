@@ -111,7 +111,12 @@ export const requestSignupOtp = asyncHandler(async (req: Request, res: Response)
   res.status(201).json({
     success: true,
     message: "OTP sent for signup",
-    data: { email, expiresAt, resendAfter },
+    data: {
+      email,
+      expiresAt,
+      resendAfter,
+      ...(env.NODE_ENV === "development" ? { devOtp: otp } : {}),
+    },
   });
 });
 
@@ -214,7 +219,12 @@ export const requestLoginOtp = asyncHandler(async (req: Request, res: Response) 
   res.status(200).json({
     success: true,
     message: "OTP sent for login",
-    data: { email, expiresAt, resendAfter },
+    data: {
+      email,
+      expiresAt,
+      resendAfter,
+      ...(env.NODE_ENV === "development" ? { devOtp: otp } : {}),
+    },
   });
 });
 
@@ -286,11 +296,9 @@ export const refresh = asyncHandler(async (req: Request, res: Response) => {
 export const logout = asyncHandler(async (_req: Request, res: Response) => {
   res.clearCookie("accessToken", {
     ...accessCookieOptions,
-    expires: new Date(0),
   });
   res.clearCookie("refreshToken", {
     ...refreshCookieOptions,
-    expires: new Date(0),
   });
   res.status(200).json({ success: true, message: "Logged out" });
 });

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { Ride } from "@/components/RideCard";
 import {
   AUTH_CHANGED_EVENT,
@@ -98,9 +98,49 @@ export const RideProvider = ({ children }: { children: React.ReactNode }) => {
     branch: "",
     year: "",
   };
-  const [currentUser, setCurrentUser] = useState<UserAccount>(
-    getCurrentUser() || guestUser
-  );
+
+  const [currentUser, setCurrentUser] = useState<UserAccount>(getCurrentUser() || guestUser);
+
+  const mergeRequests = useCallback((incoming: RideRequest[]) => {
+    const map = new Map<string, RideRequest>();
+    incoming.forEach((item) => map.set(item.id, item));
+    return Array.from(map.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }, []);
+
+  const refreshData = useCallback(async () => {
+    if (!currentUser?.id) {
+      setRides([]);
+      setRequests([]);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const [allRides, incoming, mine] = await Promise.all([
+        apiRequest<ApiResponse<Ride[]>>("/rides"),
+        apiRequest<ApiResponse<RideRequest[]>>("/requests/incoming"),
+        apiRequest<ApiResponse<RideRequest[]>>("/requests/mine"),
+      ]);
+
+      const rideMap = new Map<string, Ride>();
+      allRides.data.forEach((ride) => {
+        rideMap.set(ride.id, ride);
+      });
+
+      setRides(Array.from(rideMap.values()));
+      setRequests(mergeRequests([...(incoming.data || []), ...(mine.data || [])]));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentUser?.id, mergeRequests]);
+
+  const refreshInBackground = useCallback(() => {
+    void refreshData().catch(() => {
+      // background sync failures should not block UI
+    });
+  }, [refreshData]);
 
   useEffect(() => {
     const syncUserFromStorage = () => {
@@ -120,76 +160,59 @@ export const RideProvider = ({ children }: { children: React.ReactNode }) => {
     void hydrateCurrentUser();
   }, []);
 
-  const mergeRequests = useCallback((incoming: RideRequest[]) => {
-    const map = new Map<string, RideRequest>();
-    incoming.forEach((item) => map.set(item.id, item));
-    return Array.from(map.values()).sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-  }, []);
-
-  const refreshData = useCallback(async () => {
-    if (!currentUser?.id) {
-      setRides([]);
-      setRequests([]);
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const [allRides, myRides, incoming, mine] = await Promise.all([
-        apiRequest<ApiResponse<Ride[]>>("/rides"),
-        apiRequest<ApiResponse<Ride[]>>("/rides/mine"),
-        apiRequest<ApiResponse<RideRequest[]>>("/requests/incoming"),
-        apiRequest<ApiResponse<RideRequest[]>>("/requests/mine"),
-      ]);
-
-      const rideMap = new Map<string, Ride>();
-      [...allRides.data, ...myRides.data].forEach((ride) => {
-        rideMap.set(ride.id, ride);
-      });
-
-      setRides(Array.from(rideMap.values()));
-      setRequests(mergeRequests([...(incoming.data || []), ...(mine.data || [])]));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentUser?.id, mergeRequests]);
-
   useEffect(() => {
     void refreshData();
   }, [refreshData]);
 
-  const addRide = useCallback(async (ride: CreateRideInput) => {
-    try {
-      const response = await apiRequest<ApiResponse<Ride>>("/rides", {
-        method: "POST",
-        body: JSON.stringify(ride),
-      });
+  useEffect(() => {
+    if (!currentUser?.id) return;
 
-      setRides((prev) => [response.data, ...prev]);
-      return { success: true, message: response.message || "Ride posted successfully" };
-    } catch (error) {
-      if (error instanceof ApiError) {
-        return { success: false, message: error.message };
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        refreshInBackground();
       }
-      return { success: false, message: "Failed to post ride" };
-    }
-  }, []);
+    }, 4000);
+
+    const onFocus = () => refreshInBackground();
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [currentUser?.id, refreshInBackground]);
+
+  const addRide = useCallback(
+    async (ride: CreateRideInput) => {
+      try {
+        const response = await apiRequest<ApiResponse<Ride>>("/rides", {
+          method: "POST",
+          body: JSON.stringify(ride),
+        });
+
+        setRides((prev) => [response.data, ...prev]);
+        refreshInBackground();
+        return { success: true, message: response.message || "Ride posted successfully" };
+      } catch (error) {
+        if (error instanceof ApiError) {
+          return { success: false, message: error.message };
+        }
+        return { success: false, message: "Failed to post ride" };
+      }
+    },
+    [refreshInBackground]
+  );
 
   const sendRequest = useCallback(
     async (rideId: string, seatsRequested: number) => {
       try {
-        const response = await apiRequest<ApiResponse<RideRequest>>(
-          `/rides/${rideId}/requests`,
-          {
-            method: "POST",
-            body: JSON.stringify({ seatsRequested }),
-          }
-        );
+        const response = await apiRequest<ApiResponse<RideRequest>>(`/rides/${rideId}/requests`, {
+          method: "POST",
+          body: JSON.stringify({ seatsRequested }),
+        });
 
         setRequests((prev) => mergeRequests([response.data, ...prev]));
-        await refreshData();
+        refreshInBackground();
         return { success: true, message: response.message || "Ride request sent successfully" };
       } catch (error) {
         if (error instanceof ApiError) {
@@ -198,26 +221,35 @@ export const RideProvider = ({ children }: { children: React.ReactNode }) => {
         return { success: false, message: "Failed to send request" };
       }
     },
-    [mergeRequests, refreshData]
+    [mergeRequests, refreshInBackground]
   );
 
   const approveRequest = useCallback(
     async (requestId: string) => {
       try {
-        const response = await apiRequest<ApiResponse<RideRequest>>(
-          `/requests/${requestId}/status`,
-          {
-            method: "PATCH",
-            body: JSON.stringify({ status: "approved" }),
-          }
-        );
+        const response = await apiRequest<ApiResponse<RideRequest>>(`/requests/${requestId}/status`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "approved" }),
+        });
 
         setRequests((prev) =>
           prev.map((request) =>
             request.id === requestId ? { ...request, status: "approved" } : request
           )
         );
-        await refreshData();
+
+        const approvedRequest = requests.find((r) => r.id === requestId);
+        if (approvedRequest) {
+          setRides((prev) =>
+            prev.map((ride) =>
+              ride.id === approvedRequest.rideId
+                ? { ...ride, seats: Math.max(0, ride.seats - approvedRequest.seatsRequested) }
+                : ride
+            )
+          );
+        }
+
+        refreshInBackground();
         return { success: true, message: response.message || "Request approved" };
       } catch (error) {
         if (error instanceof ApiError) {
@@ -226,24 +258,22 @@ export const RideProvider = ({ children }: { children: React.ReactNode }) => {
         return { success: false, message: "Failed to approve request" };
       }
     },
-    [refreshData]
+    [requests, refreshInBackground]
   );
 
   const rejectRequest = useCallback(
     async (requestId: string) => {
       try {
-        const response = await apiRequest<ApiResponse<RideRequest>>(
-          `/requests/${requestId}/status`,
-          {
-            method: "PATCH",
-            body: JSON.stringify({ status: "rejected" }),
-          }
-        );
+        const response = await apiRequest<ApiResponse<RideRequest>>(`/requests/${requestId}/status`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "rejected" }),
+        });
 
         setRequests((prev) =>
           prev.map((r) => (r.id === requestId ? { ...r, status: "rejected" } : r))
         );
-        await refreshData();
+
+        refreshInBackground();
         return { success: true, message: response.message || "Request rejected" };
       } catch (error) {
         if (error instanceof ApiError) {
@@ -252,22 +282,17 @@ export const RideProvider = ({ children }: { children: React.ReactNode }) => {
         return { success: false, message: "Failed to reject request" };
       }
     },
-    [refreshData]
+    [refreshInBackground]
   );
 
   const getRequestForRide = useCallback(
     (rideId: string) =>
-      requests.find(
-        (r) => r.rideId === rideId && r.requesterEmail === currentUser.email
-      ),
+      requests.find((r) => r.rideId === rideId && r.requesterEmail === currentUser.email),
     [requests, currentUser]
   );
 
   const getRequestsForMyRides = useCallback(
-    () =>
-      requests.filter((request) => {
-        return request.rideOwnerEmail === currentUser.email;
-      }),
+    () => requests.filter((request) => request.rideOwnerEmail === currentUser.email),
     [requests, currentUser]
   );
 
