@@ -5,6 +5,8 @@ import { mockRides as initialMockRides } from "@/data/mockRides";
 export interface RideRequest {
   id: string;
   rideId: string;
+  rideOwnerEmail?: string;
+  rideOwnerName: string;
   requesterName: string;
   requesterEmail: string;
   seatsRequested: number;
@@ -26,7 +28,7 @@ interface RideContextType {
   addRide: (ride: Ride) => void;
   requests: RideRequest[];
   sendRequest: (rideId: string, seatsRequested: number) => { success: boolean; message: string };
-  approveRequest: (requestId: string) => void;
+  approveRequest: (requestId: string) => { success: boolean; message: string };
   rejectRequest: (requestId: string) => void;
   getRequestForRide: (rideId: string) => RideRequest | undefined;
   getRequestsForMyRides: () => RideRequest[];
@@ -37,7 +39,6 @@ interface RideContextType {
     name: string;
     email: string;
     phone?: string;
-    rollNumber?: string;
     branch?: string;
     year?: string;
     organization?: string;
@@ -64,7 +65,6 @@ export const RideProvider = ({ children }: { children: React.ReactNode }) => {
         name: "Student",
         email: "student@chitkara.edu.in",
         phone: "",
-        rollNumber: "",
         branch: "",
         year: "",
       };
@@ -74,10 +74,23 @@ export const RideProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const sendRequest = useCallback(
-    (rideId: string) => {
+    (rideId: string, seatsRequested: number) => {
       const targetRide = rides.find((r) => r.id === rideId);
       if (!targetRide) {
         return { success: false, message: "Ride not found" };
+      }
+
+      if (targetRide.seats <= 0) {
+        return { success: false, message: "No seats left for this ride" };
+      }
+
+      if (seatsRequested > targetRide.seats) {
+        return {
+          success: false,
+          message: `Only ${targetRide.seats} ${
+            targetRide.seats === 1 ? "seat is" : "seats are"
+          } available`,
+        };
       }
 
       // Check if already requested this specific ride (pending or approved)
@@ -141,8 +154,11 @@ export const RideProvider = ({ children }: { children: React.ReactNode }) => {
       const req: RideRequest = {
         id: crypto.randomUUID(),
         rideId,
+        rideOwnerEmail: targetRide.driverEmail,
+        rideOwnerName: targetRide.driverName,
         requesterName: currentUser.name || currentUser.email.split("@")[0],
         requesterEmail: currentUser.email,
+        seatsRequested,
         status: "pending",
         createdAt: new Date().toISOString(),
       };
@@ -152,11 +168,49 @@ export const RideProvider = ({ children }: { children: React.ReactNode }) => {
     [requests, rides, currentUser]
   );
 
-  const approveRequest = useCallback((requestId: string) => {
-    setRequests((prev) =>
-      prev.map((r) => (r.id === requestId ? { ...r, status: "approved" } : r))
-    );
-  }, []);
+  const approveRequest = useCallback(
+    (requestId: string) => {
+      const targetRequest = requests.find((request) => request.id === requestId);
+
+      if (!targetRequest) {
+        return { success: false, message: "Request not found" };
+      }
+
+      if (targetRequest.status !== "pending") {
+        return { success: false, message: "Only pending requests can be approved" };
+      }
+
+      const targetRide = rides.find((ride) => ride.id === targetRequest.rideId);
+      if (!targetRide) {
+        return { success: false, message: "Ride not found" };
+      }
+
+      if (targetRide.seats < targetRequest.seatsRequested) {
+        return {
+          success: false,
+          message: `Not enough seats. Only ${targetRide.seats} available now`,
+        };
+      }
+
+      setRequests((prev) =>
+        prev.map((request) =>
+          request.id === requestId ? { ...request, status: "approved" } : request
+        )
+      );
+
+      // Seats are reduced only after explicit approval.
+      setRides((prev) =>
+        prev.map((ride) =>
+          ride.id === targetRequest.rideId
+            ? { ...ride, seats: Math.max(0, ride.seats - targetRequest.seatsRequested) }
+            : ride
+        )
+      );
+
+      return { success: true, message: "Request approved" };
+    },
+    [requests, rides]
+  );
 
   const rejectRequest = useCallback((requestId: string) => {
     setRequests((prev) =>
@@ -172,10 +226,16 @@ export const RideProvider = ({ children }: { children: React.ReactNode }) => {
     [requests, currentUser]
   );
 
-  const getRequestsForMyRides = useCallback(() => {
-    // In mock mode, show all requests (as if current user is the offerer)
-    return requests;
-  }, [requests]);
+  const getRequestsForMyRides = useCallback(
+    () =>
+      requests.filter((request) => {
+        if (request.rideOwnerEmail) {
+          return request.rideOwnerEmail === currentUser.email;
+        }
+        return request.rideOwnerName === currentUser.name;
+      }),
+    [requests, currentUser]
+  );
 
   const sendMessage = useCallback(
     (rideId: string, text: string, senderRole: "requester" | "offerer") => {

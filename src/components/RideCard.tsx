@@ -8,7 +8,6 @@ export interface Ride {
   driverName: string;
   driverEmail?: string;
   driverPhone?: string;
-  driverRollNumber?: string;
   driverBranch?: string;
   driverYear?: string;
   carModel: string;

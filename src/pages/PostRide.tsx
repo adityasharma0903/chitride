@@ -73,7 +73,6 @@ const PostRide = () => {
       driverName: currentUser.name || "You",
       driverEmail: currentUser.email || "",
       driverPhone: currentUser.phone || "",
-      driverRollNumber: currentUser.rollNumber || "",
       driverBranch: currentUser.branch || "",
       driverYear: currentUser.year || "",
       carModel,

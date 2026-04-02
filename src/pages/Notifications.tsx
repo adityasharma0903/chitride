@@ -47,6 +47,9 @@ const Notifications = () => {
                       <p className="text-xs text-muted-foreground">
                         {req.requesterEmail}
                       </p>
+                      <p className="text-xs text-foreground/80 mt-1">
+                        Seats requested: <span className="font-semibold">{req.seatsRequested}</span>
+                      </p>
                     </div>
                     <span
                       className={`text-xs font-semibold px-2 py-1 rounded-full capitalize ${
@@ -73,8 +76,12 @@ const Notifications = () => {
                     <div className="flex gap-2">
                       <button
                         onClick={() => {
-                          approveRequest(req.id);
-                          toast.success("Request approved! 🎉");
+                          const result = approveRequest(req.id);
+                          if (result.success) {
+                            toast.success("Request approved! 🎉");
+                          } else {
+                            toast.error(result.message);
+                          }
                         }}
                         className="flex-1 flex items-center justify-center gap-1.5 bg-primary text-primary-foreground py-2.5 rounded-xl text-xs font-semibold hover:bg-primary/90 transition-colors"
                       >

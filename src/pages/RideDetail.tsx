@@ -14,6 +14,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { useRideContext } from "@/context/RideContext";
+import { findAccountByEmail } from "@/lib/auth";
 import { toast } from "sonner";
 
 const RideDetail = () => {
@@ -38,6 +39,9 @@ const RideDetail = () => {
   const messages = id ? getMessagesForRide(id) : [];
   const isRideOwner = ride?.driverEmail === currentUser.email;
   const canSeePhone = isRideOwner || request?.status === "approved";
+  const resolvedDriverPhone =
+    ride?.driverPhone ||
+    (ride?.driverEmail ? findAccountByEmail(ride.driverEmail)?.phone || "" : "");
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -167,12 +171,6 @@ const RideDetail = () => {
               <p className="text-xs text-foreground break-all">{ride.driverEmail}</p>
             </div>
           )}
-          {ride.driverRollNumber && (
-            <div className="flex items-start gap-2">
-              <span className="text-[10px] font-semibold text-muted-foreground min-w-16">Roll No:</span>
-              <p className="text-xs text-foreground">{ride.driverRollNumber}</p>
-            </div>
-          )}
           {ride.driverBranch && (
             <div className="flex items-start gap-2">
               <span className="text-[10px] font-semibold text-muted-foreground min-w-16">Branch:</span>
@@ -185,10 +183,10 @@ const RideDetail = () => {
               <p className="text-xs text-foreground">{ride.driverYear}</p>
             </div>
           )}
-          {canSeePhone && ride.driverPhone ? (
+          {canSeePhone && resolvedDriverPhone ? (
             <div className="flex items-start gap-2 pt-1 border-t border-border">
               <span className="text-[10px] font-semibold text-primary min-w-16">Phone:</span>
-              <p className="text-xs text-primary font-semibold">{ride.driverPhone}</p>
+              <p className="text-xs text-primary font-semibold">{resolvedDriverPhone}</p>
             </div>
           ) : (
             !isRideOwner && (

@@ -8,7 +8,10 @@ const Profile = () => {
   const { currentUser, rides, requests } = useRideContext();
 
   const myPostedRides = rides.filter(
-    (r) => r.driverName === currentUser.name || r.avatar === (currentUser.name || "Y").slice(0, 2).toUpperCase()
+    (r) =>
+      r.driverEmail === currentUser.email ||
+      r.driverName === currentUser.name ||
+      r.avatar === (currentUser.name || "Y").slice(0, 2).toUpperCase()
   );
   const myRequests = requests.filter((r) => r.requesterEmail === currentUser.email);
   const myBookedRides = myRequests.filter((r) => r.status !== "rejected");

@@ -10,6 +10,7 @@ const MyRides = () => {
 
   const myPostedRides = rides.filter(
     (ride) =>
+      ride.driverEmail === currentUser.email ||
       ride.driverName === currentUser.name ||
       ride.avatar === (currentUser.name || "Y").slice(0, 2).toUpperCase()
   );
