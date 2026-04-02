@@ -9,7 +9,7 @@ const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const PostRide = () => {
   const navigate = useNavigate();
-  const { addRide, currentUser } = useRideContext();
+  const { addRide } = useRideContext();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [date, setDate] = useState("");
@@ -22,6 +22,7 @@ const PostRide = () => {
   const [carImagePreview, setCarImagePreview] = useState<string | null>(null);
   const [repeatDays, setRepeatDays] = useState<string[]>([]);
   const [paymentMethod, setPaymentMethod] = useState("Cash");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const toggleDay = (day: string) => {
@@ -62,19 +63,15 @@ const PostRide = () => {
     }
   };
 
-  const handlePost = (e: React.FormEvent) => {
+  const handlePost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!from || !to || !date || !time || !price || !carModel || !carNumberPlate) {
       toast.error("Please fill in all fields.");
       return;
     }
-    const newRide = {
-      id: crypto.randomUUID(),
-      driverName: currentUser.name || "You",
-      driverEmail: currentUser.email || "",
-      driverPhone: currentUser.phone || "",
-      driverBranch: currentUser.branch || "",
-      driverYear: currentUser.year || "",
+
+    setIsSubmitting(true);
+    const result = await addRide({
       carModel,
       carNumberPlate,
       carImageUrl,
@@ -83,12 +80,18 @@ const PostRide = () => {
       date,
       departureTime: time,
       arrivalTime: "",
-      pricePerSeat: `₹${price}`,
+      pricePerSeat: Number(price),
       seats,
-      eta: "—",
-      avatar: (currentUser.name || "Y").slice(0, 2).toUpperCase(),
-    };
-    addRide(newRide);
+      paymentMethod,
+      repeatDays,
+    });
+    setIsSubmitting(false);
+
+    if (!result.success) {
+      toast.error(result.message);
+      return;
+    }
+
     toast.success("Ride posted successfully!");
     navigate("/home");
   };
@@ -304,9 +307,10 @@ const PostRide = () => {
           {/* Submit */}
           <button
             type="submit"
+            disabled={isSubmitting}
             className="bg-foreground text-card w-full py-4 rounded-2xl font-semibold text-sm mt-4 hover:opacity-90 transition-opacity"
           >
-            Post Ride
+            {isSubmitting ? "Posting..." : "Post Ride"}
           </button>
         </form>
       </div>

@@ -64,8 +64,8 @@ const RideDetail = () => {
     setShowSeatSelection(true);
   };
 
-  const handleConfirmRequest = () => {
-    const result = sendRequest(ride.id, seatsToRequest);
+  const handleConfirmRequest = async () => {
+    const result = await sendRequest(ride.id, seatsToRequest);
     setShowSeatSelection(false);
     if (result.success) {
       toast.success(

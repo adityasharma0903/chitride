@@ -10,17 +10,25 @@ import { generateOtp, hashOtp, verifyOtpHash } from "../utils/otp.js";
 import { signAccessToken, signRefreshToken } from "../utils/jwt.js";
 import { sendOtpEmail } from "../services/mailer.service.js";
 import { requestLoginOtpSchema, requestSignupOtpSchema, verifyOtpSchema } from "../validators/auth.validator.js";
+import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
 
 const authTokens = (userId: string, email: string, role: "user" | "admin") => ({
   accessToken: signAccessToken({ sub: userId, email, role }),
   refreshToken: signRefreshToken({ sub: userId, email, role }),
 });
 
-const cookieOptions = {
+const refreshCookieOptions = {
   httpOnly: true,
   secure: env.NODE_ENV === "production",
   sameSite: env.NODE_ENV === "production" ? ("none" as const) : ("lax" as const),
   path: "/api/v1/auth",
+};
+
+const accessCookieOptions = {
+  httpOnly: true,
+  secure: env.NODE_ENV === "production",
+  sameSite: env.NODE_ENV === "production" ? ("none" as const) : ("lax" as const),
+  path: "/",
 };
 
 const cookieExpires = () => {
@@ -28,10 +36,19 @@ const cookieExpires = () => {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 };
 
+const accessCookieExpires = () => {
+  const minutes = 15;
+  return new Date(Date.now() + minutes * 60 * 1000);
+};
+
 const sendAuthResponse = (res: Response, user: { _id: unknown; name: string; email: string; phone: string; branch: string; year: string; role: "user" | "admin" }) => {
   const tokens = authTokens(String(user._id), user.email, user.role);
+  res.cookie("accessToken", tokens.accessToken, {
+    ...accessCookieOptions,
+    expires: accessCookieExpires(),
+  });
   res.cookie("refreshToken", tokens.refreshToken, {
-    ...cookieOptions,
+    ...refreshCookieOptions,
     expires: cookieExpires(),
   });
 
@@ -267,29 +284,23 @@ export const refresh = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const logout = asyncHandler(async (_req: Request, res: Response) => {
+  res.clearCookie("accessToken", {
+    ...accessCookieOptions,
+    expires: new Date(0),
+  });
   res.clearCookie("refreshToken", {
-    ...cookieOptions,
+    ...refreshCookieOptions,
     expires: new Date(0),
   });
   res.status(200).json({ success: true, message: "Logged out" });
 });
 
-export const me = asyncHandler(async (req: Request, res: Response) => {
-  const token = req.headers.authorization?.startsWith("Bearer ")
-    ? req.headers.authorization.slice(7)
-    : "";
-
-  if (!token) {
+export const me = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user?.id) {
     throw new AppError("Unauthorized", 401);
   }
 
-  const payload = jwt.verify(token, env.JWT_ACCESS_SECRET) as {
-    sub: string;
-    email: string;
-    role: "user" | "admin";
-  };
-
-  const user = await UserModel.findById(payload.sub);
+  const user = await UserModel.findById(req.user.id);
   if (!user) {
     throw new AppError("Account not found", 404);
   }

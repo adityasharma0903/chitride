@@ -15,19 +15,10 @@ export const createApp = () => {
   app.use(helmet());
   app.use(
     cors({
-      origin: (origin, callback) => {
-        // In development, allow localhost on any port
-        if (
-          env.NODE_ENV === "development" &&
-          origin?.startsWith("http://localhost:")
-        ) {
-          callback(null, true);
-        } else if (origin === env.CLIENT_ORIGIN) {
-          callback(null, true);
-        } else {
-          callback(null, true); // Allow in dev, restrict in prod
-        }
-      },
+      origin:
+        env.NODE_ENV === "production"
+          ? env.CLIENT_ORIGIN
+          : true,
       credentials: true,
     })
   );

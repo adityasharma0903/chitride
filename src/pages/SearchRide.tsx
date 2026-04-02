@@ -152,9 +152,9 @@ const SearchRide = () => {
                 </div>
 
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     const ride = rides.find((r) => r.id === selectedRideId);
-                    const result = sendRequest(selectedRideId, seatsToRequest);
+                    const result = await sendRequest(selectedRideId, seatsToRequest);
                     setSelectedRideId(null);
                     if (result.success) {
                       toast.success(

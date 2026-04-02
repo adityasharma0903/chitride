@@ -75,8 +75,8 @@ const Notifications = () => {
                   {req.status === "pending" && (
                     <div className="flex gap-2">
                       <button
-                        onClick={() => {
-                          const result = approveRequest(req.id);
+                        onClick={async () => {
+                          const result = await approveRequest(req.id);
                           if (result.success) {
                             toast.success("Request approved! 🎉");
                           } else {
@@ -88,9 +88,13 @@ const Notifications = () => {
                         <CheckCircle2 className="w-3.5 h-3.5" /> Approve
                       </button>
                       <button
-                        onClick={() => {
-                          rejectRequest(req.id);
-                          toast.error("Request rejected");
+                        onClick={async () => {
+                          const result = await rejectRequest(req.id);
+                          if (result.success) {
+                            toast.error("Request rejected");
+                          } else {
+                            toast.error(result.message);
+                          }
                         }}
                         className="flex-1 flex items-center justify-center gap-1.5 bg-destructive/10 text-destructive py-2.5 rounded-xl text-xs font-semibold hover:bg-destructive/20 transition-colors"
                       >

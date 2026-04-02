@@ -1,7 +1,12 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import type { Ride } from "@/components/RideCard";
-import { mockRides as initialMockRides } from "@/data/mockRides";
-import { getCurrentUser } from "@/lib/auth";
+import {
+  AUTH_CHANGED_EVENT,
+  getCurrentUser,
+  hydrateCurrentUser,
+  type UserAccount,
+} from "@/lib/auth";
+import { ApiError, apiRequest } from "@/lib/api";
 
 export interface RideRequest {
   id: string;
@@ -26,11 +31,16 @@ export interface ChatMessage {
 
 interface RideContextType {
   rides: Ride[];
-  addRide: (ride: Ride) => void;
+  isLoading: boolean;
+  refreshData: () => Promise<void>;
+  addRide: (ride: CreateRideInput) => Promise<{ success: boolean; message: string }>;
   requests: RideRequest[];
-  sendRequest: (rideId: string, seatsRequested: number) => { success: boolean; message: string };
-  approveRequest: (requestId: string) => { success: boolean; message: string };
-  rejectRequest: (requestId: string) => void;
+  sendRequest: (
+    rideId: string,
+    seatsRequested: number
+  ) => Promise<{ success: boolean; message: string }>;
+  approveRequest: (requestId: string) => Promise<{ success: boolean; message: string }>;
+  rejectRequest: (requestId: string) => Promise<{ success: boolean; message: string }>;
   getRequestForRide: (rideId: string) => RideRequest | undefined;
   getRequestsForMyRides: () => RideRequest[];
   chatMessages: ChatMessage[];
@@ -46,6 +56,27 @@ interface RideContextType {
   };
 }
 
+type ApiResponse<T> = {
+  success: boolean;
+  message?: string;
+  data: T;
+};
+
+export interface CreateRideInput {
+  from: string;
+  to: string;
+  date: string;
+  departureTime: string;
+  arrivalTime?: string;
+  seats: number;
+  pricePerSeat: number;
+  carModel: string;
+  carNumberPlate: string;
+  carImageUrl?: string;
+  paymentMethod?: string;
+  repeatDays?: string[];
+}
+
 const RideContext = createContext<RideContextType | null>(null);
 
 export const useRideContext = () => {
@@ -55,166 +86,174 @@ export const useRideContext = () => {
 };
 
 export const RideProvider = ({ children }: { children: React.ReactNode }) => {
-  const [rides, setRides] = useState<Ride[]>(initialMockRides);
+  const [rides, setRides] = useState<Ride[]>([]);
   const [requests, setRequests] = useState<RideRequest[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const currentUser = getCurrentUser() || {
+  const guestUser: UserAccount = {
     name: "Student",
     email: "student@chitkara.edu.in",
     phone: "",
     branch: "",
     year: "",
   };
+  const [currentUser, setCurrentUser] = useState<UserAccount>(
+    getCurrentUser() || guestUser
+  );
 
-  const addRide = useCallback((ride: Ride) => {
-    setRides((prev) => [ride, ...prev]);
+  useEffect(() => {
+    const syncUserFromStorage = () => {
+      setCurrentUser(getCurrentUser() || guestUser);
+    };
+
+    window.addEventListener(AUTH_CHANGED_EVENT, syncUserFromStorage);
+    window.addEventListener("storage", syncUserFromStorage);
+
+    return () => {
+      window.removeEventListener(AUTH_CHANGED_EVENT, syncUserFromStorage);
+      window.removeEventListener("storage", syncUserFromStorage);
+    };
+  }, []);
+
+  useEffect(() => {
+    void hydrateCurrentUser();
+  }, []);
+
+  const mergeRequests = useCallback((incoming: RideRequest[]) => {
+    const map = new Map<string, RideRequest>();
+    incoming.forEach((item) => map.set(item.id, item));
+    return Array.from(map.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }, []);
+
+  const refreshData = useCallback(async () => {
+    if (!currentUser?.id) {
+      setRides([]);
+      setRequests([]);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const [allRides, myRides, incoming, mine] = await Promise.all([
+        apiRequest<ApiResponse<Ride[]>>("/rides"),
+        apiRequest<ApiResponse<Ride[]>>("/rides/mine"),
+        apiRequest<ApiResponse<RideRequest[]>>("/requests/incoming"),
+        apiRequest<ApiResponse<RideRequest[]>>("/requests/mine"),
+      ]);
+
+      const rideMap = new Map<string, Ride>();
+      [...allRides.data, ...myRides.data].forEach((ride) => {
+        rideMap.set(ride.id, ride);
+      });
+
+      setRides(Array.from(rideMap.values()));
+      setRequests(mergeRequests([...(incoming.data || []), ...(mine.data || [])]));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentUser?.id, mergeRequests]);
+
+  useEffect(() => {
+    void refreshData();
+  }, [refreshData]);
+
+  const addRide = useCallback(async (ride: CreateRideInput) => {
+    try {
+      const response = await apiRequest<ApiResponse<Ride>>("/rides", {
+        method: "POST",
+        body: JSON.stringify(ride),
+      });
+
+      setRides((prev) => [response.data, ...prev]);
+      return { success: true, message: response.message || "Ride posted successfully" };
+    } catch (error) {
+      if (error instanceof ApiError) {
+        return { success: false, message: error.message };
+      }
+      return { success: false, message: "Failed to post ride" };
+    }
   }, []);
 
   const sendRequest = useCallback(
-    (rideId: string, seatsRequested: number) => {
-      const targetRide = rides.find((r) => r.id === rideId);
-      if (!targetRide) {
-        return { success: false, message: "Ride not found" };
-      }
-
-      if (targetRide.seats <= 0) {
-        return { success: false, message: "No seats left for this ride" };
-      }
-
-      if (seatsRequested > targetRide.seats) {
-        return {
-          success: false,
-          message: `Only ${targetRide.seats} ${
-            targetRide.seats === 1 ? "seat is" : "seats are"
-          } available`,
-        };
-      }
-
-      // Check if already requested this specific ride (pending or approved)
-      const existingRide = requests.find(
-        (r) =>
-          r.rideId === rideId &&
-          r.requesterEmail === currentUser.email &&
-          (r.status === "pending" || r.status === "approved")
-      );
-      if (existingRide) {
-        return { success: false, message: "You already requested this ride" };
-      }
-
-      // Check for overlapping rides (only if both rides have dates)
-      if (targetRide.date && targetRide.departureTime) {
-        const userRequests = requests.filter(
-          (r) =>
-            r.requesterEmail === currentUser.email &&
-            r.status !== "rejected" &&
-            r.rideId !== rideId
+    async (rideId: string, seatsRequested: number) => {
+      try {
+        const response = await apiRequest<ApiResponse<RideRequest>>(
+          `/rides/${rideId}/requests`,
+          {
+            method: "POST",
+            body: JSON.stringify({ seatsRequested }),
+          }
         );
 
-        for (const req of userRequests) {
-          const otherRide = rides.find((r) => r.id === req.rideId);
-          if (!otherRide || !otherRide.date || !otherRide.departureTime) continue;
-
-          // Only check overlaps on same date
-          if (otherRide.date !== targetRide.date) continue;
-
-          // Parse times (format: "HH:MM AM/PM" or "HH:MM")
-          const parseTime = (timeStr: string) => {
-            const parts = timeStr.trim().toUpperCase().split(" ");
-            const [hours, mins] = parts[0].split(":").map(Number);
-            const isPM = parts[1] === "PM";
-            let hour = hours;
-            if (isPM && hour !== 12) hour += 12;
-            if (!isPM && hour === 12) hour = 0;
-            return hour * 60 + mins; // Return minutes since midnight
-          };
-
-          try {
-            const targetMinutes = parseTime(targetRide.departureTime);
-            const otherMinutes = parseTime(otherRide.departureTime);
-            const timeDifference = Math.abs(targetMinutes - otherMinutes);
-
-            // Check if rides depart within 30 minutes of each other
-            if (timeDifference < 30) {
-              return {
-                success: false,
-                message: "You already have a ride departing within 30 minutes",
-              };
-            }
-          } catch (e) {
-            // If time parsing fails, skip this check
-            continue;
-          }
+        setRequests((prev) => mergeRequests([response.data, ...prev]));
+        await refreshData();
+        return { success: true, message: response.message || "Ride request sent successfully" };
+      } catch (error) {
+        if (error instanceof ApiError) {
+          return { success: false, message: error.message };
         }
+        return { success: false, message: "Failed to send request" };
       }
-
-      // Create request
-      const req: RideRequest = {
-        id: crypto.randomUUID(),
-        rideId,
-        rideOwnerEmail: targetRide.driverEmail,
-        rideOwnerName: targetRide.driverName,
-        requesterName: currentUser.name || currentUser.email.split("@")[0],
-        requesterEmail: currentUser.email,
-        seatsRequested,
-        status: "pending",
-        createdAt: new Date().toISOString(),
-      };
-      setRequests((prev) => [...prev, req]);
-      return { success: true, message: "Ride request sent successfully" };
     },
-    [requests, rides, currentUser]
+    [mergeRequests, refreshData]
   );
 
   const approveRequest = useCallback(
-    (requestId: string) => {
-      const targetRequest = requests.find((request) => request.id === requestId);
+    async (requestId: string) => {
+      try {
+        const response = await apiRequest<ApiResponse<RideRequest>>(
+          `/requests/${requestId}/status`,
+          {
+            method: "PATCH",
+            body: JSON.stringify({ status: "approved" }),
+          }
+        );
 
-      if (!targetRequest) {
-        return { success: false, message: "Request not found" };
+        setRequests((prev) =>
+          prev.map((request) =>
+            request.id === requestId ? { ...request, status: "approved" } : request
+          )
+        );
+        await refreshData();
+        return { success: true, message: response.message || "Request approved" };
+      } catch (error) {
+        if (error instanceof ApiError) {
+          return { success: false, message: error.message };
+        }
+        return { success: false, message: "Failed to approve request" };
       }
-
-      if (targetRequest.status !== "pending") {
-        return { success: false, message: "Only pending requests can be approved" };
-      }
-
-      const targetRide = rides.find((ride) => ride.id === targetRequest.rideId);
-      if (!targetRide) {
-        return { success: false, message: "Ride not found" };
-      }
-
-      if (targetRide.seats < targetRequest.seatsRequested) {
-        return {
-          success: false,
-          message: `Not enough seats. Only ${targetRide.seats} available now`,
-        };
-      }
-
-      setRequests((prev) =>
-        prev.map((request) =>
-          request.id === requestId ? { ...request, status: "approved" } : request
-        )
-      );
-
-      // Seats are reduced only after explicit approval.
-      setRides((prev) =>
-        prev.map((ride) =>
-          ride.id === targetRequest.rideId
-            ? { ...ride, seats: Math.max(0, ride.seats - targetRequest.seatsRequested) }
-            : ride
-        )
-      );
-
-      return { success: true, message: "Request approved" };
     },
-    [requests, rides]
+    [refreshData]
   );
 
-  const rejectRequest = useCallback((requestId: string) => {
-    setRequests((prev) =>
-      prev.map((r) => (r.id === requestId ? { ...r, status: "rejected" } : r))
-    );
-  }, []);
+  const rejectRequest = useCallback(
+    async (requestId: string) => {
+      try {
+        const response = await apiRequest<ApiResponse<RideRequest>>(
+          `/requests/${requestId}/status`,
+          {
+            method: "PATCH",
+            body: JSON.stringify({ status: "rejected" }),
+          }
+        );
+
+        setRequests((prev) =>
+          prev.map((r) => (r.id === requestId ? { ...r, status: "rejected" } : r))
+        );
+        await refreshData();
+        return { success: true, message: response.message || "Request rejected" };
+      } catch (error) {
+        if (error instanceof ApiError) {
+          return { success: false, message: error.message };
+        }
+        return { success: false, message: "Failed to reject request" };
+      }
+    },
+    [refreshData]
+  );
 
   const getRequestForRide = useCallback(
     (rideId: string) =>
@@ -227,10 +266,7 @@ export const RideProvider = ({ children }: { children: React.ReactNode }) => {
   const getRequestsForMyRides = useCallback(
     () =>
       requests.filter((request) => {
-        if (request.rideOwnerEmail) {
-          return request.rideOwnerEmail === currentUser.email;
-        }
-        return request.rideOwnerName === currentUser.name;
+        return request.rideOwnerEmail === currentUser.email;
       }),
     [requests, currentUser]
   );
@@ -259,6 +295,8 @@ export const RideProvider = ({ children }: { children: React.ReactNode }) => {
     <RideContext.Provider
       value={{
         rides,
+        isLoading,
+        refreshData,
         addRide,
         requests,
         sendRequest,

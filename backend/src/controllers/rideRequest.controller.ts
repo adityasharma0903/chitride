@@ -1,0 +1,219 @@
+import type { Response } from "express";
+import { Types } from "mongoose";
+import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
+import { RideModel, type RideDocument } from "../models/Ride.model.js";
+import { RideRequestModel, type RideRequestDocument } from "../models/RideRequest.model.js";
+import { UserModel } from "../models/User.model.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { AppError } from "../utils/appError.js";
+import { createRideRequestSchema, updateRequestStatusSchema } from "../validators/ride.validator.js";
+
+const paramToString = (value: unknown) => (typeof value === "string" ? value : "");
+
+const toRequestPayload = (request: RideRequestDocument, ride?: RideDocument) => ({
+  requesterSnapshot: request.requesterSnapshot || {
+    name: "Requester",
+    email: "",
+  },
+  rideSnapshot: ride?.ownerSnapshot || {
+    name: "Ride Owner",
+    email: "",
+  },
+});
+
+const mapRequestPayload = (request: RideRequestDocument, ride?: RideDocument) => ({
+  id: String(request._id),
+  rideId: String(request.ride),
+  rideOwnerEmail: toRequestPayload(request, ride).rideSnapshot.email,
+  rideOwnerName: toRequestPayload(request, ride).rideSnapshot.name,
+  requesterName: toRequestPayload(request, ride).requesterSnapshot.name,
+  requesterEmail: toRequestPayload(request, ride).requesterSnapshot.email,
+  seatsRequested: request.seatsRequested,
+  status: request.status,
+  createdAt: request.createdAt,
+});
+
+const fetchRideMap = async (rideIds: string[]) => {
+  const rides = await RideModel.find({ _id: { $in: rideIds } }).lean();
+  const map = new Map<string, RideDocument>();
+  rides.forEach((ride) => map.set(String(ride._id), ride as RideDocument));
+  return map;
+};
+
+export const requestRide = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user?.id) {
+    throw new AppError("Unauthorized", 401);
+  }
+
+  const rideId = paramToString(req.params.rideId);
+  if (!Types.ObjectId.isValid(rideId)) {
+    throw new AppError("Invalid ride id", 400);
+  }
+
+  const parsed = createRideRequestSchema.parse(req.body);
+
+  const ride = await RideModel.findById(rideId);
+  if (!ride || ride.status !== "active") {
+    throw new AppError("Ride not found", 404);
+  }
+
+  if (String(ride.owner) === req.user.id) {
+    throw new AppError("You cannot request your own ride", 400);
+  }
+
+  if (ride.seatsAvailable < parsed.seatsRequested) {
+    throw new AppError(`Only ${ride.seatsAvailable} seat(s) available`, 400);
+  }
+
+  const existing = await RideRequestModel.findOne({
+    ride: ride._id,
+    requester: req.user.id,
+    status: { $in: ["pending", "approved"] },
+  });
+
+  if (existing) {
+    throw new AppError("You already requested this ride", 409);
+  }
+
+  const requester = await UserModel.findById(req.user.id).lean();
+  if (!requester) {
+    throw new AppError("User not found", 404);
+  }
+
+  const created = await RideRequestModel.create({
+    ride: ride._id,
+    rideOwner: ride.owner,
+    requester: req.user.id,
+    requesterSnapshot: {
+      name: requester.name,
+      email: requester.email,
+    },
+    seatsRequested: parsed.seatsRequested,
+    status: "pending",
+  });
+
+  res.status(201).json({
+    success: true,
+    message: "Ride request sent successfully",
+    data: mapRequestPayload(created.toObject() as RideRequestDocument, ride.toObject() as RideDocument),
+  });
+});
+
+export const getMyRequestForRide = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user?.id) {
+    throw new AppError("Unauthorized", 401);
+  }
+
+  const rideId = paramToString(req.params.rideId);
+  if (!Types.ObjectId.isValid(rideId)) {
+    throw new AppError("Invalid ride id", 400);
+  }
+
+  const request = await RideRequestModel.findOne({
+    ride: rideId,
+    requester: req.user.id,
+  })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  if (!request) {
+    res.status(200).json({ success: true, data: null });
+    return;
+  }
+
+  const ride = await RideModel.findById(request.ride).lean();
+  res.status(200).json({
+    success: true,
+    data: mapRequestPayload(request as RideRequestDocument, ride as RideDocument),
+  });
+});
+
+export const getIncomingRequests = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user?.id) {
+    throw new AppError("Unauthorized", 401);
+  }
+
+  const requests = await RideRequestModel.find({ rideOwner: req.user.id }).sort({ createdAt: -1 }).lean();
+  const rideMap = await fetchRideMap(requests.map((item) => String(item.ride)));
+
+  res.status(200).json({
+    success: true,
+    data: requests.map((item) =>
+      mapRequestPayload(item as RideRequestDocument, rideMap.get(String(item.ride)))
+    ),
+  });
+});
+
+export const getMyBookings = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user?.id) {
+    throw new AppError("Unauthorized", 401);
+  }
+
+  const requests = await RideRequestModel.find({ requester: req.user.id, status: { $ne: "rejected" } })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  const rideMap = await fetchRideMap(requests.map((item) => String(item.ride)));
+
+  res.status(200).json({
+    success: true,
+    data: requests.map((item) =>
+      mapRequestPayload(item as RideRequestDocument, rideMap.get(String(item.ride)))
+    ),
+  });
+});
+
+export const updateRequestStatus = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user?.id) {
+    throw new AppError("Unauthorized", 401);
+  }
+
+  const requestId = paramToString(req.params.requestId);
+  if (!Types.ObjectId.isValid(requestId)) {
+    throw new AppError("Invalid request id", 400);
+  }
+
+  const { status } = updateRequestStatusSchema.parse(req.body);
+
+  const request = await RideRequestModel.findById(requestId);
+  if (!request) {
+    throw new AppError("Request not found", 404);
+  }
+
+  if (String(request.rideOwner) !== req.user.id) {
+    throw new AppError("You are not allowed to update this request", 403);
+  }
+
+  if (request.status !== "pending") {
+    throw new AppError("Only pending requests can be updated", 400);
+  }
+
+  if (status === "approved") {
+    const ride = await RideModel.findOneAndUpdate(
+      {
+        _id: request.ride,
+        seatsAvailable: { $gte: request.seatsRequested },
+      },
+      {
+        $inc: { seatsAvailable: -request.seatsRequested },
+      },
+      { new: true }
+    );
+
+    if (!ride) {
+      throw new AppError("Not enough seats available now", 400);
+    }
+  }
+
+  request.status = status;
+  request.respondedAt = new Date();
+  await request.save();
+
+  const ride = await RideModel.findById(request.ride).lean();
+
+  res.status(200).json({
+    success: true,
+    message: `Request ${status}`,
+    data: mapRequestPayload(request.toObject() as RideRequestDocument, ride as RideDocument),
+  });
+});

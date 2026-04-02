@@ -12,11 +12,14 @@ export interface AuthenticatedRequest extends Request {
 
 export const requireAuth = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const header = req.headers.authorization;
-  if (!header?.startsWith("Bearer ")) {
+  const bearerToken = header?.startsWith("Bearer ") ? header.slice(7) : "";
+  const cookieToken = req.cookies?.accessToken || "";
+  const token = bearerToken || cookieToken;
+
+  if (!token) {
     return next(new AppError("Unauthorized", 401));
   }
 
-  const token = header.slice(7);
   try {
     const decoded = verifyAccessToken(token);
     req.user = {

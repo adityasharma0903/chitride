@@ -7,7 +7,7 @@ const bootstrap = async () => {
   const app = createApp();
 
   app.listen(env.PORT, () => {
-    console.log(`Auth backend running on port ${env.PORT}`);
+    console.log(`Backend running on port ${env.PORT}`);
   });
 };
 
