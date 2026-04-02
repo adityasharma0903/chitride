@@ -1,14 +1,15 @@
 export interface UserAccount {
+  id?: string;
   name: string;
   email: string;
   phone: string;
-  password: string;
   branch?: string;
   year?: string;
+  role?: "user" | "admin";
 }
 
-const ACCOUNTS_KEY = "easyride_accounts";
 const CURRENT_USER_KEY = "easyride_user";
+const ACCESS_TOKEN_KEY = "easyride_access_token";
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
@@ -17,52 +18,39 @@ export const isCollegeEmail = (email: string) =>
 
 export const sanitizePhone = (value: string) => value.replace(/\D/g, "");
 
-export const getAccounts = (): UserAccount[] => {
-  const raw = localStorage.getItem(ACCOUNTS_KEY);
-  if (!raw) return [];
-
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
-
-export const saveAccounts = (accounts: UserAccount[]) => {
-  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
-};
-
-export const findAccountByEmail = (email: string) => {
-  const normalized = normalizeEmail(email);
-  return getAccounts().find((account) => normalizeEmail(account.email) === normalized);
-};
-
-export const upsertAccount = (account: UserAccount) => {
-  const accounts = getAccounts();
-  const normalized = normalizeEmail(account.email);
-  const index = accounts.findIndex(
-    (existing) => normalizeEmail(existing.email) === normalized
-  );
-
-  if (index >= 0) {
-    accounts[index] = account;
-  } else {
-    accounts.push(account);
-  }
-
-  saveAccounts(accounts);
-};
-
-export const setCurrentUserFromAccount = (account: UserAccount) => {
+export const setCurrentUserFromAccount = (account: UserAccount, accessToken?: string) => {
   localStorage.setItem(
     CURRENT_USER_KEY,
     JSON.stringify({
+      id: account.id,
       name: account.name,
       email: normalizeEmail(account.email),
       phone: account.phone,
       branch: account.branch || "",
       year: account.year || "",
+      role: account.role || "user",
     })
   );
+
+  if (accessToken) {
+    localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+  }
+};
+
+export const getCurrentUser = (): UserAccount | null => {
+  const raw = localStorage.getItem(CURRENT_USER_KEY);
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw) as UserAccount;
+  } catch {
+    return null;
+  }
+};
+
+export const getAccessToken = () => localStorage.getItem(ACCESS_TOKEN_KEY);
+
+export const clearSession = () => {
+  localStorage.removeItem(CURRENT_USER_KEY);
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
 };

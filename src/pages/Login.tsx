@@ -2,24 +2,26 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Mail, Lock, ArrowRight, ShieldCheck } from "lucide-react";
 import {
-  findAccountByEmail,
   isCollegeEmail,
   sanitizePhone,
   setCurrentUserFromAccount,
 } from "@/lib/auth";
+import { apiRequest } from "@/lib/api";
+import { toast } from "sonner";
 
 const Login = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
-  const [generatedOtp, setGeneratedOtp] = useState("");
   const [otpStep, setOtpStep] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!isCollegeEmail(normalizedEmail)) {
@@ -29,44 +31,52 @@ const Login = () => {
 
     if (password.length < 6) {
       setError("Password must be at least 6 characters.");
+      setIsLoading(false);
       return;
     }
 
-    const account = findAccountByEmail(normalizedEmail);
-    if (!account) {
-      setError("Account not found. Please sign up first.");
-      return;
-    }
-
-    if (account.password !== password) {
-      setError("Incorrect password.");
-      return;
-    }
-
-    const nextOtp = String(Math.floor(100000 + Math.random() * 900000));
-    setGeneratedOtp(nextOtp);
-    setEmail(normalizedEmail);
-    setOtpStep(true);
+    apiRequest<{ success: boolean; message: string; data: { email: string } }>("/auth/login/request-otp", {
+      method: "POST",
+      body: JSON.stringify({
+        email: normalizedEmail,
+        password,
+      }),
+    })
+      .then(() => {
+        setEmail(normalizedEmail);
+        setOtpStep(true);
+        toast.success("OTP sent to your email.");
+      })
+      .catch((apiError: unknown) => {
+        setError(apiError instanceof Error ? apiError.message : "Failed to send OTP");
+      })
+      .finally(() => setIsLoading(false));
   };
 
   const handleVerifyOtp = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
 
-    if (otp.trim() !== generatedOtp) {
-      setError("Invalid OTP. Please try again.");
-      return;
-    }
-
-    const account = findAccountByEmail(email);
-    if (!account) {
-      setError("Account not found. Please sign in again.");
-      setOtpStep(false);
-      return;
-    }
-
-    setCurrentUserFromAccount(account);
-    navigate("/home");
+    apiRequest<{ success: boolean; message: string; data: { user: { id?: string; name: string; email: string; phone: string; branch?: string; year?: string; role?: "user" | "admin" }; accessToken: string } }>(
+      "/auth/login/verify-otp",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          email,
+          otp: otp.trim(),
+          purpose: "login",
+        }),
+      }
+    )
+      .then((response) => {
+        setCurrentUserFromAccount(response.data.user, response.data.accessToken);
+        navigate("/home");
+      })
+      .catch((apiError: unknown) => {
+        setError(apiError instanceof Error ? apiError.message : "Failed to verify OTP");
+      })
+      .finally(() => setIsLoading(false));
   };
 
   return (
@@ -137,17 +147,10 @@ const Login = () => {
             </div>
 
             <p className="text-xs text-muted-foreground px-1">
-              OTP sent to {email}. Demo OTP: <span className="font-semibold text-foreground">{generatedOtp}</span>
+              OTP sent to {email}.
             </p>
 
-            <button
-              type="button"
-              onClick={() => {
-                const nextOtp = String(Math.floor(100000 + Math.random() * 900000));
-                setGeneratedOtp(nextOtp);
-              }}
-              className="text-left text-xs text-primary font-semibold px-1"
-            >
+            <button type="button" onClick={handleLogin} className="text-left text-xs text-primary font-semibold px-1">
               Resend OTP
             </button>
           </>
@@ -159,9 +162,10 @@ const Login = () => {
 
         <button
           type="submit"
+          disabled={isLoading}
           className="bg-primary hover:bg-primary/90 text-primary-foreground w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 mt-4 transition-colors"
         >
-          {otpStep ? "Verify OTP" : "Send OTP"} <ArrowRight className="w-4 h-4" />
+          {isLoading ? "Please wait..." : otpStep ? "Verify OTP" : "Send OTP"} <ArrowRight className="w-4 h-4" />
         </button>
 
         {!otpStep && (

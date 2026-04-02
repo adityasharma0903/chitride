@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { Car, LogOut, User, Mail, Phone, Pencil, BookOpenCheck } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
 import { useRideContext } from "@/context/RideContext";
+import { clearSession } from "@/lib/auth";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -17,7 +18,7 @@ const Profile = () => {
   const myBookedRides = myRequests.filter((r) => r.status !== "rejected");
 
   const handleLogout = () => {
-    localStorage.removeItem("easyride_user");
+    clearSession();
     navigate("/");
   };
 

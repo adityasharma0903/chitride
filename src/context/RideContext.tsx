@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback } from "react";
 import type { Ride } from "@/components/RideCard";
 import { mockRides as initialMockRides } from "@/data/mockRides";
+import { getCurrentUser } from "@/lib/auth";
 
 export interface RideRequest {
   id: string;
@@ -58,16 +59,13 @@ export const RideProvider = ({ children }: { children: React.ReactNode }) => {
   const [requests, setRequests] = useState<RideRequest[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
-  const stored = localStorage.getItem("easyride_user");
-  const currentUser = stored
-    ? JSON.parse(stored)
-    : {
-        name: "Student",
-        email: "student@chitkara.edu.in",
-        phone: "",
-        branch: "",
-        year: "",
-      };
+  const currentUser = getCurrentUser() || {
+    name: "Student",
+    email: "student@chitkara.edu.in",
+    phone: "",
+    branch: "",
+    year: "",
+  };
 
   const addRide = useCallback((ride: Ride) => {
     setRides((prev) => [ride, ...prev]);

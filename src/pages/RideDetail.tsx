@@ -14,7 +14,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { useRideContext } from "@/context/RideContext";
-import { findAccountByEmail } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { toast } from "sonner";
 
 const RideDetail = () => {
@@ -39,9 +39,8 @@ const RideDetail = () => {
   const messages = id ? getMessagesForRide(id) : [];
   const isRideOwner = ride?.driverEmail === currentUser.email;
   const canSeePhone = isRideOwner || request?.status === "approved";
-  const resolvedDriverPhone =
-    ride?.driverPhone ||
-    (ride?.driverEmail ? findAccountByEmail(ride.driverEmail)?.phone || "" : "");
+  const sessionUser = getCurrentUser();
+  const resolvedDriverPhone = ride?.driverPhone || (isRideOwner ? sessionUser?.phone || "" : "");
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });

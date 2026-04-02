@@ -2,13 +2,13 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Mail, Lock, User, ArrowRight, Phone, ShieldCheck } from "lucide-react";
 import {
-  findAccountByEmail,
   isCollegeEmail,
   sanitizePhone,
   setCurrentUserFromAccount,
-  upsertAccount,
   type UserAccount,
 } from "@/lib/auth";
+import { apiRequest } from "@/lib/api";
+import { toast } from "sonner";
 
 const branches = ["CSE", "Mech Engg", "ECE", "Civil", "MBA", "Pharmacy", "Biotech", "BCA", "BBA"];
 const years = ["1st Year", "2nd Year", "3rd Year", "4th Year", "MBA/PhD"];
@@ -23,12 +23,13 @@ const Signup = () => {
   const [year, setYear] = useState("");
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
-  const [generatedOtp, setGeneratedOtp] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleSendOtp = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedPhone = sanitizePhone(phone);
 
@@ -42,54 +43,71 @@ const Signup = () => {
       return;
     }
 
-    if (findAccountByEmail(normalizedEmail)) {
-      setError("Account already exists. Please sign in instead.");
-      return;
-    }
-
     if (normalizedPhone.length !== 10) {
       setError("Please enter a valid phone number.");
+      setIsLoading(false);
       return;
     }
 
     if (!branch || !year) {
       setError("Please select branch and year.");
+      setIsLoading(false);
       return;
     }
 
     if (password.length < 6) {
       setError("Password must be at least 6 characters.");
+      setIsLoading(false);
       return;
     }
 
-    const nextOtp = String(Math.floor(100000 + Math.random() * 900000));
-    setGeneratedOtp(nextOtp);
-    setEmail(normalizedEmail);
-    setPhone(normalizedPhone);
-    setStep("otp");
+    apiRequest<{ success: boolean; message: string; data: { email: string } }>("/auth/signup/request-otp", {
+      method: "POST",
+      body: JSON.stringify({
+        name: name.trim(),
+        email: normalizedEmail,
+        phone: normalizedPhone,
+        password,
+        branch,
+        year,
+      }),
+    })
+      .then(() => {
+        setEmail(normalizedEmail);
+        setPhone(normalizedPhone);
+        setStep("otp");
+        toast.success("OTP sent to your email.");
+      })
+      .catch((apiError: unknown) => {
+        setError(apiError instanceof Error ? apiError.message : "Failed to send OTP");
+      })
+      .finally(() => setIsLoading(false));
   };
 
   const handleVerifyOtp = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
 
-    if (otp.trim() !== generatedOtp) {
-      setError("Invalid OTP. Please try again.");
-      return;
-    }
-
-    const account: UserAccount = {
-      name: name.trim(),
-      email,
-      phone,
-      branch,
-      year,
-      password,
-    };
-
-    upsertAccount(account);
-    setCurrentUserFromAccount(account);
-    navigate("/home");
+    apiRequest<{ success: boolean; message: string; data: { user: UserAccount; accessToken: string } }>(
+      "/auth/signup/verify-otp",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          email,
+          otp: otp.trim(),
+          purpose: "signup",
+        }),
+      }
+    )
+      .then((response) => {
+        setCurrentUserFromAccount(response.data.user, response.data.accessToken);
+        navigate("/home");
+      })
+      .catch((apiError: unknown) => {
+        setError(apiError instanceof Error ? apiError.message : "Failed to verify OTP");
+      })
+      .finally(() => setIsLoading(false));
   };
 
   return (
@@ -220,17 +238,10 @@ const Signup = () => {
             </div>
 
             <p className="text-xs text-muted-foreground px-1">
-              OTP sent to {email}. Demo OTP: <span className="font-semibold text-foreground">{generatedOtp}</span>
+              OTP sent to {email}.
             </p>
 
-            <button
-              type="button"
-              onClick={() => {
-                const nextOtp = String(Math.floor(100000 + Math.random() * 900000));
-                setGeneratedOtp(nextOtp);
-              }}
-              className="text-left text-xs text-primary font-semibold px-1"
-            >
+            <button type="button" onClick={handleSendOtp} className="text-left text-xs text-primary font-semibold px-1">
               Resend OTP
             </button>
           </>
@@ -240,9 +251,10 @@ const Signup = () => {
 
         <button
           type="submit"
+          disabled={isLoading}
           className="bg-primary hover:bg-primary/90 text-primary-foreground w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 mt-4 transition-colors"
         >
-          {step === "details" ? "Send OTP" : "Verify OTP"}
+          {isLoading ? "Please wait..." : step === "details" ? "Send OTP" : "Verify OTP"}
           <ArrowRight className="w-4 h-4" />
         </button>
 
