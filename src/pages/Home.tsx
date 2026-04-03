@@ -1,11 +1,11 @@
-import { useEffect, useState, type KeyboardEvent } from "react";
+import { useEffect, useState, useRef, type KeyboardEvent } from "react";
 import { Search, MapPin, SlidersHorizontal, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import BottomNav from "@/components/BottomNav";
 import HomeLiveMap from "@/components/HomeLiveMap";
 import RideCard from "@/components/RideCard";
 import { useRideContext } from "@/context/RideContext";
-import { reverseGeocode } from "@/lib/location";
+import { reverseGeocode, geocodeLocationName, haversineDistanceKm } from "@/lib/location";
 import { toast } from "sonner";
 
 type Coordinate = [number, number];
@@ -25,6 +25,8 @@ const Home = () => {
   const [isLocating, setIsLocating] = useState(true);
   const [desktopSplit, setDesktopSplit] = useState(66);
   const [isDraggingSplit, setIsDraggingSplit] = useState(false);
+  const rideCoordinatesRef = useRef<Map<string, Coordinate>>(new Map());
+  const [, setGeocodingTrigger] = useState(0); // Trigger re-renders when coords are cached
 
   useEffect(() => {
     if (!("geolocation" in navigator)) {
@@ -69,8 +71,40 @@ const Home = () => {
     const priceValue = Number.parseFloat(ride.pricePerSeat.replace(/[^\d.]/g, ""));
     const seatMatch = appliedMinSeats === 0 || ride.seats >= appliedMinSeats;
     const priceMatch = appliedMaxPricePerMile === null || priceValue <= appliedMaxPricePerMile;
-    return seatMatch && priceMatch;
+
+    // Distance filter: only show rides within 5km of current location
+    let distanceMatch = true;
+    if (currentLocation && rideCoordinatesRef.current.has(ride.id)) {
+      const rideCoords = rideCoordinatesRef.current.get(ride.id);
+      if (rideCoords) {
+        const distance = haversineDistanceKm(currentLocation, rideCoords);
+        distanceMatch = distance <= 5; // 5km radius
+      }
+    }
+
+    return seatMatch && priceMatch && distanceMatch;
   });
+
+  // Geocode ride starting locations asynchronously
+  useEffect(() => {
+    const geocodeRides = async () => {
+      for (const ride of rides) {
+        // Skip if already cached
+        if (rideCoordinatesRef.current.has(ride.id)) continue;
+
+        try {
+          const coords = await geocodeLocationName(ride.from);
+          rideCoordinatesRef.current.set(ride.id, coords);
+          // Trigger re-render to update filtered rides
+          setGeocodingTrigger((prev) => prev + 1);
+        } catch {
+          // Silently fail for rides we can't geocode
+        }
+      }
+    };
+
+    void geocodeRides();
+  }, [rides]);
 
   const handleLocationClick = () => {
     if (!("geolocation" in navigator)) {
@@ -294,32 +328,62 @@ const Home = () => {
                 showTwoColumnRides ? "flex flex-col gap-4 md:grid md:grid-cols-2" : "flex flex-col gap-4"
               }`}
             >
-              {filteredRides.map((ride) => {
-                const isOwnRide = ride.driverEmail === currentUser.email;
-                const request = requests.find(
-                  (r) => r.rideId === ride.id && r.requesterEmail === currentUser.email
-                );
-                return (
-                  <RideCard
-                    key={ride.id}
-                    ride={ride}
-                    request={request}
-                    onRequest={
-                      isOwnRide
-                        ? undefined
-                        : () => {
-                            setSelectedRideId(ride.id);
-                            setSeatsToRequest(1);
-                          }
-                    }
-                  />
-                );
-              })}
+              {/* Show skeleton loaders while location is syncing */}
+              {isLocating ? (
+                <>
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="animate-pulse rounded-xl border border-border bg-card p-4 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-3 flex-1">
+                          <div className="w-10 h-10 rounded-full bg-muted" />
+                          <div className="flex-1 space-y-2">
+                            <div className="h-3 bg-muted rounded w-24" />
+                            <div className="h-2.5 bg-muted rounded w-32" />
+                          </div>
+                        </div>
+                        <div className="h-6 bg-muted rounded px-2 w-16" />
+                      </div>
+                      <div className="space-y-2 pt-2">
+                        <div className="h-2.5 bg-muted rounded w-full" />
+                        <div className="h-2.5 bg-muted rounded w-5/6" />
+                      </div>
+                      <div className="flex gap-2 pt-2">
+                        <div className="h-8 bg-muted rounded flex-1" />
+                        <div className="h-8 bg-muted rounded w-20" />
+                      </div>
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <>
+                  {filteredRides.map((ride) => {
+                    const isOwnRide = ride.driverEmail === currentUser.email;
+                    const request = requests.find(
+                      (r) => r.rideId === ride.id && r.requesterEmail === currentUser.email
+                    );
+                    return (
+                      <RideCard
+                        key={ride.id}
+                        ride={ride}
+                        request={request}
+                        onRequest={
+                          isOwnRide
+                            ? undefined
+                            : () => {
+                                setSelectedRideId(ride.id);
+                                setSeatsToRequest(1);
+                              }
+                        }
+                      />
+                    );
+                  })}
 
-              {filteredRides.length === 0 && (
-                <p className="py-6 text-center text-sm text-muted-foreground md:rounded-xl md:border md:border-dashed md:border-border md:bg-card/60 md:col-span-2">
-                  No rides match current filters.
-                </p>
+                  {filteredRides.length === 0 && (
+                    <p className="py-6 text-center text-sm text-muted-foreground md:rounded-xl md:border md:border-dashed md:border-border md:bg-card/60 md:col-span-2">
+                      No rides match current filters.
+                    </p>
+                  )}
+                </>
               )}
             </div>
           </section>

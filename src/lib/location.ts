@@ -68,6 +68,8 @@ const haversineDistanceKm = (from: Coordinate, to: Coordinate) => {
   return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
+export { haversineDistanceKm };
+
 const getLocalSuggestions = (query: string): PlaceSuggestion[] => {
   const normalized = normalizeLocationText(query);
   if (!normalized) return [];
