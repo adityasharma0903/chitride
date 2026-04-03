@@ -1,18 +1,94 @@
 import { useNavigate } from "react-router-dom";
-import { Car, LogOut, User, Mail, Phone, Pencil, BookOpenCheck, ChevronRight, Camera } from "lucide-react";
-import { useRef, useState } from "react";
+import { Car, LogOut, User, Mail, Phone, Pencil, BookOpenCheck, ChevronRight, Camera, Star, Flag } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
 import { useRideContext } from "@/context/RideContext";
-import { logoutFromServer } from "@/lib/auth";
+import { logoutFromServer, setCurrentUserFromAccount } from "@/lib/auth";
+import { ApiError, apiRequest } from "@/lib/api";
 import { uploadImageToCloudinary } from "@/lib/cloudinary";
+
+type ProfileFeedbackItem = {
+  id: string;
+  rideId: string;
+  rideFrom: string;
+  rideTo: string;
+  kind: "review" | "report";
+  rating: number | null;
+  comment: string;
+  createdAt: string;
+};
 
 const Profile = () => {
   const navigate = useNavigate();
   const { currentUser, rides, requests } = useRideContext();
   const [isUploadingProfileImage, setIsUploadingProfileImage] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isLoadingFeedback, setIsLoadingFeedback] = useState(false);
+  const [feedbackError, setFeedbackError] = useState("");
+  const [myFeedback, setMyFeedback] = useState<{
+    received: ProfileFeedbackItem[];
+    given: ProfileFeedbackItem[];
+  }>({
+    received: [],
+    given: [],
+  });
+  const [profileForm, setProfileForm] = useState({
+    name: currentUser.name || "",
+    phone: currentUser.phone || "",
+    branch: currentUser.branch || "",
+    year: currentUser.year || "",
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentUserId = (currentUser as { id?: string }).id;
+
+  useEffect(() => {
+    setProfileForm({
+      name: currentUser.name || "",
+      phone: currentUser.phone || "",
+      branch: currentUser.branch || "",
+      year: currentUser.year || "",
+    });
+  }, [currentUser.name, currentUser.phone, currentUser.branch, currentUser.year]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadFeedback = async () => {
+      if (!currentUserId) return;
+
+      setIsLoadingFeedback(true);
+      setFeedbackError("");
+
+      try {
+        const response = await apiRequest<{
+          success: boolean;
+          data: {
+            received: ProfileFeedbackItem[];
+            given: ProfileFeedbackItem[];
+          };
+        }>("/feedback/mine");
+
+        if (!isActive) return;
+        setMyFeedback(response.data);
+      } catch (error) {
+        if (!isActive) return;
+        const message = error instanceof ApiError ? error.message : "Failed to load feedback";
+        setFeedbackError(message);
+      } finally {
+        if (isActive) {
+          setIsLoadingFeedback(false);
+        }
+      }
+    };
+
+    loadFeedback();
+
+    return () => {
+      isActive = false;
+    };
+  }, [currentUserId]);
 
   const myPostedRides = rides.filter(
     (r) => (currentUserId && r.ownerId === currentUserId) || r.driverEmail === currentUser.email
@@ -21,6 +97,38 @@ const Profile = () => {
     (r) => (currentUserId && r.requesterId === currentUserId) || r.requesterEmail === currentUser.email
   );
   const myBookedRides = myRequests.filter((r) => r.status !== "rejected");
+  const reviewCount = myFeedback.received.filter((item) => item.kind === "review").length;
+  const reportCount = myFeedback.received.filter((item) => item.kind === "report").length;
+
+  const renderStars = (rating: number | null) => {
+    if (!rating) return <span className="text-xs text-muted-foreground">No rating</span>;
+
+    return (
+      <div className="flex items-center gap-1">
+        {Array.from({ length: 5 }, (_, index) => (
+          <Star
+            key={index}
+            className={`h-3.5 w-3.5 ${index < rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`}
+          />
+        ))}
+      </div>
+    );
+  };
+
+  const feedbackGroups = [
+    {
+      title: "Reviews about you",
+      icon: Star,
+      items: myFeedback.received.filter((item) => item.kind === "review"),
+      emptyText: "No reviews yet.",
+    },
+    {
+      title: "Reports about you",
+      icon: Flag,
+      items: myFeedback.received.filter((item) => item.kind === "report"),
+      emptyText: "No reports found.",
+    },
+  ];
 
   const handleProfileImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -38,15 +146,43 @@ const Profile = () => {
 
     setIsUploadingProfileImage(true);
     try {
-      await uploadImageToCloudinary(file, "profile");
+      const imageUrl = await uploadImageToCloudinary(file, "profile");
+      setCurrentUserFromAccount({ ...currentUser, profileImageUrl: imageUrl });
       toast.success("Profile picture updated!");
-      // Refresh the page to show updated image
-      window.location.reload();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to upload image";
       toast.error(message);
     } finally {
       setIsUploadingProfileImage(false);
+    }
+  };
+
+  const handleProfileSave = async () => {
+    if (!profileForm.name.trim() || !profileForm.phone.trim() || !profileForm.branch.trim() || !profileForm.year.trim()) {
+      toast.error("Please fill in all profile fields.");
+      return;
+    }
+
+    setIsSavingProfile(true);
+    try {
+      const response = await apiRequest<{ success: boolean; data: { user: typeof currentUser } }>("/auth/me", {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: profileForm.name.trim(),
+          phone: profileForm.phone.trim(),
+          branch: profileForm.branch.trim(),
+          year: profileForm.year.trim(),
+        }),
+      });
+
+      setCurrentUserFromAccount(response.data.user);
+      setIsEditingProfile(false);
+      toast.success("Profile updated successfully!");
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "Failed to update profile";
+      toast.error(message);
+    } finally {
+      setIsSavingProfile(false);
     }
   };
 
@@ -124,6 +260,59 @@ const Profile = () => {
           </div>
         </div>
 
+        <div className="mt-4 rounded-2xl border border-border bg-background/80 p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Community feedback</p>
+              <p className="text-xs text-muted-foreground">Reviews and reports linked to your account.</p>
+            </div>
+            <div className="text-right text-xs text-muted-foreground">
+              <p>{reviewCount} reviews</p>
+              <p>{reportCount} reports</p>
+            </div>
+          </div>
+
+          {isLoadingFeedback ? (
+            <div className="rounded-xl border border-dashed border-border px-4 py-5 text-sm text-muted-foreground">
+              Loading feedback...
+            </div>
+          ) : feedbackError ? (
+            <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-5 text-sm text-destructive">
+              {feedbackError}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {feedbackGroups.map((group) => (
+                <div key={group.title} className="rounded-xl border border-border p-3">
+                  <div className="mb-3 flex items-center gap-2">
+                    <group.icon className="h-4 w-4 text-muted-foreground" />
+                    <p className="text-sm font-semibold text-foreground">{group.title}</p>
+                    <span className="ml-auto text-xs text-muted-foreground">{group.items.length}</span>
+                  </div>
+
+                  {group.items.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">{group.emptyText}</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {group.items.map((item) => (
+                        <div key={item.id} className="rounded-lg bg-card p-3 text-left border border-border/70">
+                          <div className="mb-2 flex items-center justify-between gap-3">
+                            <p className="text-xs font-medium text-muted-foreground">
+                              {item.rideFrom && item.rideTo ? `${item.rideFrom} → ${item.rideTo}` : "Ride feedback"}
+                            </p>
+                            {item.kind === "review" ? renderStars(item.rating) : <Flag className="h-3.5 w-3.5 text-destructive" />}
+                          </div>
+                          <p className="text-sm text-foreground">{item.comment}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
       </section>
 
       <section className="mt-3 rounded-3xl border border-border/70 bg-card/75 p-4 md:col-span-8 md:mt-0 md:p-6 md:backdrop-blur-xl">
@@ -169,7 +358,7 @@ const Profile = () => {
         </button>
 
         <button
-          onClick={() => navigate("/signup")}
+          onClick={() => setIsEditingProfile((prev) => !prev)}
           className="group bg-card rounded-xl p-4 border border-border flex items-center gap-3 text-left hover:bg-secondary transition-all hover:-translate-y-0.5 hover:shadow-md"
         >
           <Pencil className="w-5 h-5 text-muted-foreground" />
@@ -179,6 +368,69 @@ const Profile = () => {
           </div>
           <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
         </button>
+
+        {isEditingProfile && (
+          <div className="md:col-span-2 rounded-2xl border border-border bg-background p-4">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Edit profile</p>
+                <p className="text-xs text-muted-foreground">Your changes will update your account immediately.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditingProfile(false)}
+                className="text-xs font-semibold text-muted-foreground"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <input
+                value={profileForm.name}
+                onChange={(e) => setProfileForm((prev) => ({ ...prev, name: e.target.value }))}
+                placeholder="Full name"
+                className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none"
+              />
+              <input
+                value={profileForm.phone}
+                onChange={(e) => setProfileForm((prev) => ({ ...prev, phone: e.target.value }))}
+                placeholder="Phone number"
+                className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none"
+              />
+              <input
+                value={profileForm.branch}
+                onChange={(e) => setProfileForm((prev) => ({ ...prev, branch: e.target.value }))}
+                placeholder="Branch"
+                className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none"
+              />
+              <input
+                value={profileForm.year}
+                onChange={(e) => setProfileForm((prev) => ({ ...prev, year: e.target.value }))}
+                placeholder="Year"
+                className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none"
+              />
+            </div>
+
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={handleProfileSave}
+                disabled={isSavingProfile}
+                className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+              >
+                {isSavingProfile ? "Saving..." : "Save changes"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsEditingProfile(false)}
+                className="rounded-xl bg-secondary px-4 py-2 text-sm font-semibold text-foreground"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         <button
           onClick={handleLogout}

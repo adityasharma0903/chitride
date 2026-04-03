@@ -1,11 +1,13 @@
 import type { Response } from "express";
 import { Types } from "mongoose";
 import { RideModel, type RideDocument } from "../models/Ride.model.js";
+import { RideRequestModel } from "../models/RideRequest.model.js";
 import { UserModel } from "../models/User.model.js";
+import { createManyNotifications } from "../services/notification.service.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { AppError } from "../utils/appError.js";
 import { generateETag, checkETag } from "../utils/etag.js";
-import { createRideSchema } from "../validators/ride.validator.js";
+import { createRideSchema, updateRideSchema } from "../validators/ride.validator.js";
 import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
 
 const paramToString = (value: unknown) => (typeof value === "string" ? value : "");
@@ -96,7 +98,7 @@ export const getRideById = asyncHandler(async (req: AuthenticatedRequest, res: R
     throw new AppError("Ride not found", 404);
   }
 
-  res.status(200).json({ success: true, data: mapRidePayload(ride as RideDocument, true) });
+  res.status(200).json({ success: true, data: mapRidePayload(ride as RideDocument) });
 });
 
 export const getMyRides = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
@@ -155,5 +157,100 @@ export const createRide = asyncHandler(async (req: AuthenticatedRequest, res: Re
     success: true,
     message: "Ride posted successfully",
     data: mapRidePayload(ride.toObject() as RideDocument),
+  });
+});
+
+export const updateRide = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user?.id) {
+    throw new AppError("Unauthorized", 401);
+  }
+
+  const rideId = paramToString(req.params.rideId);
+  if (!Types.ObjectId.isValid(rideId)) {
+    throw new AppError("Invalid ride id", 400);
+  }
+
+  const parsed = updateRideSchema.parse(req.body);
+  const ride = await RideModel.findById(rideId);
+  if (!ride) {
+    throw new AppError("Ride not found", 404);
+  }
+
+  if (String(ride.owner) !== req.user.id) {
+    throw new AppError("You are not allowed to edit this ride", 403);
+  }
+
+  const seatsBooked = ride.seatsTotal - ride.seatsAvailable;
+  const nextSeatsTotal = parsed.seats ?? ride.seatsTotal;
+  if (nextSeatsTotal < seatsBooked) {
+    throw new AppError("Seats cannot be less than already booked seats", 400);
+  }
+
+  if (parsed.from !== undefined) ride.from = parsed.from;
+  if (parsed.to !== undefined) ride.to = parsed.to;
+  if (parsed.date !== undefined) ride.date = parsed.date;
+  if (parsed.departureTime !== undefined) ride.departureTime = parsed.departureTime;
+  if (parsed.arrivalTime !== undefined) ride.arrivalTime = parsed.arrivalTime;
+  if (parsed.pricePerSeat !== undefined) ride.pricePerSeat = parsed.pricePerSeat;
+  if (parsed.carModel !== undefined) ride.carModel = parsed.carModel;
+  if (parsed.carNumberPlate !== undefined) ride.carNumberPlate = parsed.carNumberPlate;
+  if (parsed.carImageUrl !== undefined) ride.carImageUrl = parsed.carImageUrl;
+  if (parsed.paymentMethod !== undefined) ride.paymentMethod = parsed.paymentMethod;
+  if (parsed.repeatDays !== undefined) ride.repeatDays = parsed.repeatDays;
+
+  if (parsed.seats !== undefined) {
+    ride.seatsTotal = parsed.seats;
+    ride.seatsAvailable = parsed.seats - seatsBooked;
+  }
+
+  await ride.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Ride updated successfully",
+    data: mapRidePayload(ride.toObject() as RideDocument),
+  });
+});
+
+export const deleteRide = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user?.id) {
+    throw new AppError("Unauthorized", 401);
+  }
+
+  const actorId = req.user.id;
+
+  const rideId = paramToString(req.params.rideId);
+  if (!Types.ObjectId.isValid(rideId)) {
+    throw new AppError("Invalid ride id", 400);
+  }
+
+  const ride = await RideModel.findById(rideId);
+  if (!ride) {
+    throw new AppError("Ride not found", 404);
+  }
+
+  if (String(ride.owner) !== req.user.id) {
+    throw new AppError("You are not allowed to delete this ride", 403);
+  }
+
+  const pendingRequests = await RideRequestModel.find({ ride: ride._id }).lean();
+  await createManyNotifications(
+    pendingRequests.map((request) => ({
+      recipient: String(request.requester),
+      actor: actorId,
+      ride: String(ride._id),
+      kind: "ride_deleted" as const,
+      title: "Ride deleted",
+      body: `The ride from ${ride.from} to ${ride.to} has been deleted by the owner.`,
+      link: "/my-bookings",
+    }))
+  );
+
+  await RideRequestModel.deleteMany({ ride: ride._id });
+  await RideModel.deleteOne({ _id: ride._id });
+
+  res.status(200).json({
+    success: true,
+    message: "Ride deleted successfully",
   });
 });

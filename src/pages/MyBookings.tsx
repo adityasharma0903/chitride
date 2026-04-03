@@ -1,11 +1,12 @@
 import { ArrowLeft, BookOpenCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
 import { useRideContext } from "@/context/RideContext";
 
 const MyBookings = () => {
   const navigate = useNavigate();
-  const { rides, requests, currentUser } = useRideContext();
+  const { rides, requests, currentUser, cancelBooking } = useRideContext();
 
   const myBookings = requests.filter(
     (request) => request.requesterEmail === currentUser.email && request.status !== "rejected"
@@ -84,6 +85,25 @@ const MyBookings = () => {
                       Open Requests
                     </button>
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const confirmed = window.confirm("Cancel this booking?");
+                      if (!confirmed) return;
+
+                      const result = await cancelBooking(booking.id);
+                      if (!result.success) {
+                        toast.error(result.message);
+                        return;
+                      }
+
+                      toast.success("Booking cancelled");
+                    }}
+                    className="mt-2 w-full rounded-xl border border-destructive/20 bg-destructive/10 py-2.5 text-xs font-semibold text-destructive"
+                  >
+                    Cancel Booking
+                  </button>
                 </div>
               );
             })}

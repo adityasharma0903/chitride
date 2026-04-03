@@ -15,6 +15,18 @@ export const createRideSchema = z.object({
   repeatDays: z.array(z.string()).optional().default([]),
 });
 
+export const updateRideSchema = createRideSchema.partial().extend({
+  seats: z.coerce.number().int().min(1).max(6).optional(),
+  pricePerSeat: z.coerce.number().positive().optional(),
+});
+
+export const updateProfileSchema = z.object({
+  name: z.string().min(2).optional(),
+  phone: z.string().regex(/^\d{10}$/, "Phone number must be 10 digits").optional(),
+  branch: z.string().min(1).optional(),
+  year: z.string().min(1).optional(),
+});
+
 export const updateRequestStatusSchema = z.object({
   status: z.enum(["approved", "rejected"]),
 });

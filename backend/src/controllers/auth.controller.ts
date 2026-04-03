@@ -10,6 +10,7 @@ import { generateOtp, hashOtp, verifyOtpHash } from "../utils/otp.js";
 import { signAccessToken, signRefreshToken } from "../utils/jwt.js";
 import { sendOtpEmail } from "../services/mailer.service.js";
 import { requestLoginOtpSchema, requestSignupOtpSchema, verifyOtpSchema, requestPasswordResetOtpSchema, resetPasswordSchema } from "../validators/auth.validator.js";
+import { updateProfileSchema } from "../validators/ride.validator.js";
 import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
 
 const authTokens = (userId: string, email: string, role: "user" | "admin") => ({
@@ -324,6 +325,50 @@ export const me = asyncHandler(async (req: AuthenticatedRequest, res: Response) 
         branch: user.branch,
         year: user.year,
         role: user.role,
+        profileImageUrl: user.profileImageUrl || "",
+      },
+    },
+  });
+});
+
+export const updateProfile = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user?.id) {
+    throw new AppError("Unauthorized", 401);
+  }
+
+  const parsed = updateProfileSchema.parse(req.body);
+  const user = await UserModel.findById(req.user.id);
+  if (!user) {
+    throw new AppError("Account not found", 404);
+  }
+
+  if (parsed.phone && parsed.phone !== user.phone) {
+    const phoneExists = await UserModel.findOne({ phone: parsed.phone, _id: { $ne: user._id } });
+    if (phoneExists) {
+      throw new AppError("Phone number already in use", 409);
+    }
+  }
+
+  if (parsed.name !== undefined) user.name = parsed.name;
+  if (parsed.phone !== undefined) user.phone = parsed.phone;
+  if (parsed.branch !== undefined) user.branch = parsed.branch;
+  if (parsed.year !== undefined) user.year = parsed.year;
+
+  await user.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Profile updated successfully",
+    data: {
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        branch: user.branch,
+        year: user.year,
+        role: user.role,
+        profileImageUrl: user.profileImageUrl || "",
       },
     },
   });

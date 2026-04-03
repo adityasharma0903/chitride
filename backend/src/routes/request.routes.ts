@@ -3,6 +3,7 @@ import { requireAuth } from "../middlewares/auth.middleware.js";
 import {
   getIncomingRequests,
   getMyBookings,
+  cancelMyBooking,
   updateRequestStatus,
 } from "../controllers/rideRequest.controller.js";
 
@@ -12,6 +13,7 @@ router.use(requireAuth);
 
 router.get("/incoming", getIncomingRequests);
 router.get("/mine", getMyBookings);
+router.delete("/:requestId", cancelMyBooking);
 router.patch("/:requestId/status", updateRequestStatus);
 
 export default router;

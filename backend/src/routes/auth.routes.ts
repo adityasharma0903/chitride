@@ -3,6 +3,7 @@ import {
 	logout,
 	me,
 	refresh,
+	updateProfile,
 	requestLoginOtp,
 	requestSignupOtp,
 	verifyLoginOtp,
@@ -23,5 +24,6 @@ router.post("/password-reset/reset", resetPassword);
 router.post("/refresh", refresh);
 router.post("/logout", logout);
 router.get("/me", requireAuth, me);
+router.patch("/me", requireAuth, updateProfile);
 
 export default router;

@@ -5,6 +5,8 @@ import requestRoutes from "./request.routes.js";
 import chatRoutes from "./chat.routes.js";
 import geoRoutes from "./geo.routes.js";
 import uploadRoutes from "./upload.routes.js";
+import feedbackRoutes from "./feedback.routes.js";
+import notificationRoutes from "./notification.routes.js";
 
 const router = Router();
 
@@ -14,5 +16,7 @@ router.use("/v1/requests", requestRoutes);
 router.use("/v1/chat", chatRoutes);
 router.use("/v1/geo", geoRoutes);
 router.use("/v1/upload", uploadRoutes);
+router.use("/v1/feedback", feedbackRoutes);
+router.use("/v1/notifications", notificationRoutes);
 
 export default router;

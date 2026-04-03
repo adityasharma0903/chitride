@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   CheckCircle2,
   Clock,
   DollarSign,
+  Pencil,
+  Trash2,
   Loader2,
   MapPin,
   MessageCircle,
@@ -17,18 +19,43 @@ import BottomNav from "@/components/BottomNav";
 import LiveRideMap from "@/components/LiveRideMap";
 import { useRideContext } from "@/context/RideContext";
 import { getCurrentUser } from "@/lib/auth";
+import { uploadImageToCloudinary } from "@/lib/cloudinary";
+import { apiRequest, ApiError } from "@/lib/api";
 import { toast } from "sonner";
 
 const RideDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { rides, requests, currentUser, sendRequest, getRequestForRide } = useRideContext();
+  const { rides, requests, currentUser, sendRequest, getRequestForRide, updateRide, deleteRide } = useRideContext();
 
   const [request, setRequest] = useState<ReturnType<typeof getRequestForRide>>(undefined);
   const [showSeatSelection, setShowSeatSelection] = useState(false);
   const [showContactOptions, setShowContactOptions] = useState(false);
   const [seatsToRequest, setSeatsToRequest] = useState(1);
+  const [isEditingRide, setIsEditingRide] = useState(false);
+  const [isSavingRide, setIsSavingRide] = useState(false);
+  const [isDeletingRide, setIsDeletingRide] = useState(false);
+  const [isUploadingEditImage, setIsUploadingEditImage] = useState(false);
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [feedbackKind, setFeedbackKind] = useState<"review" | "report">("review");
+  const [feedbackRating, setFeedbackRating] = useState(5);
+  const [feedbackComment, setFeedbackComment] = useState("");
+  const [editRideForm, setEditRideForm] = useState({
+    from: "",
+    to: "",
+    date: "",
+    departureTime: "",
+    arrivalTime: "",
+    pricePerSeat: "",
+    seats: "1",
+    carModel: "",
+    carNumberPlate: "",
+    paymentMethod: "Cash",
+    repeatDays: "",
+    carImageUrl: "",
+  });
+  const editFileRef = useRef<HTMLInputElement | null>(null);
 
   const ride = rides.find((r) => r.id === id);
   const isRideOwner = ride?.driverEmail === currentUser.email;
@@ -56,6 +83,25 @@ const RideDetail = () => {
       setRequest(getRequestForRide(id));
     }
   }, [id, getRequestForRide]);
+
+  useEffect(() => {
+    if (!ride) return;
+
+    setEditRideForm({
+      from: ride.from,
+      to: ride.to,
+      date: ride.date || "",
+      departureTime: ride.departureTime,
+      arrivalTime: ride.arrivalTime || "",
+      pricePerSeat: ride.pricePerSeat.replace(/^₹/, ""),
+      seats: String(ride.seats),
+      carModel: ride.carModel,
+      carNumberPlate: ride.carNumberPlate || "",
+      paymentMethod: "Cash",
+      repeatDays: "",
+      carImageUrl: ride.carImageUrl || "",
+    });
+  }, [ride]);
 
   if (!ride) {
     return (
@@ -140,6 +186,120 @@ const RideDetail = () => {
     const popup = window.open(whatsappUrl, "_blank", "noopener,noreferrer");
     if (!popup) {
       window.location.href = whatsappUrl;
+    }
+  };
+
+  const handleEditCarImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file.");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image size must be less than 10MB.");
+      return;
+    }
+
+    setIsUploadingEditImage(true);
+    try {
+      const imageUrl = await uploadImageToCloudinary(file, "car");
+      setEditRideForm((prev) => ({ ...prev, carImageUrl: imageUrl }));
+      toast.success("Car image uploaded successfully.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to upload image";
+      toast.error(message);
+    } finally {
+      setIsUploadingEditImage(false);
+    }
+  };
+
+  const handleSaveRide = async () => {
+    setIsSavingRide(true);
+    try {
+      const repeatDays = editRideForm.repeatDays
+        .split(",")
+        .map((day) => day.trim())
+        .filter(Boolean);
+
+      const result = await updateRide(ride.id, {
+        from: editRideForm.from.trim(),
+        to: editRideForm.to.trim(),
+        date: editRideForm.date.trim(),
+        departureTime: editRideForm.departureTime.trim(),
+        arrivalTime: editRideForm.arrivalTime.trim(),
+        pricePerSeat: Number(editRideForm.pricePerSeat),
+        seats: Number(editRideForm.seats),
+        carModel: editRideForm.carModel.trim(),
+        carNumberPlate: editRideForm.carNumberPlate.trim(),
+        paymentMethod: editRideForm.paymentMethod.trim(),
+        repeatDays,
+        carImageUrl: editRideForm.carImageUrl,
+      });
+
+      if (!result.success) {
+        toast.error(result.message);
+        return;
+      }
+
+      toast.success("Ride updated successfully.");
+      setIsEditingRide(false);
+    } finally {
+      setIsSavingRide(false);
+    }
+  };
+
+  const handleDeleteRide = async () => {
+    const confirmed = window.confirm("Delete this ride permanently?");
+    if (!confirmed) return;
+
+    setIsDeletingRide(true);
+    try {
+      const result = await deleteRide(ride.id);
+      if (!result.success) {
+        toast.error(result.message);
+        return;
+      }
+
+      toast.success("Ride deleted.");
+      navigate("/my-rides");
+    } finally {
+      setIsDeletingRide(false);
+    }
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (!feedbackComment.trim()) {
+      toast.error("Please add a comment.");
+      return;
+    }
+
+    if (feedbackKind === "review" && feedbackRating < 1) {
+      toast.error("Please select a rating.");
+      return;
+    }
+
+    setIsSubmittingFeedback(true);
+    try {
+      const response = await apiRequest<{ success: boolean; message: string }>(`/rides/${ride.id}/feedback`, {
+        method: "POST",
+        body: JSON.stringify({
+          kind: feedbackKind,
+          rating: feedbackKind === "review" ? feedbackRating : undefined,
+          comment: feedbackComment.trim(),
+        }),
+      });
+
+      toast.success(response.message);
+      setFeedbackComment("");
+      setFeedbackRating(5);
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "Failed to submit feedback";
+      toast.error(message);
+    } finally {
+      setIsSubmittingFeedback(false);
     }
   };
 
@@ -325,6 +485,23 @@ const RideDetail = () => {
                 ? `Chat enabled with ${activeRequest.requesterName}.`
                 : "Approve a request from Notifications to unlock chat."}
             </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setIsEditingRide((prev) => !prev)}
+                className="flex-1 rounded-xl bg-secondary px-4 py-3 text-sm font-semibold text-foreground"
+              >
+                {isEditingRide ? "Close editor" : "Edit ride"}
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteRide}
+                disabled={isDeletingRide}
+                className="flex-1 rounded-xl bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive disabled:opacity-60"
+              >
+                {isDeletingRide ? "Deleting..." : "Delete ride"}
+              </button>
+            </div>
           </div>
         ) : !request ? (
           <button
@@ -351,6 +528,152 @@ const RideDetail = () => {
                 </p>
               </div>
             </div>
+          </div>
+        )}
+
+        {isRideOwner && isEditingRide && (
+          <div className="mt-4 rounded-2xl border border-border bg-card p-4">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Edit ride</p>
+                <p className="text-xs text-muted-foreground">Update ride details and car photo.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditingRide(false)}
+                className="text-xs font-semibold text-muted-foreground"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <input className="rounded-xl border border-border bg-background px-3 py-2 text-sm" value={editRideForm.from} onChange={(e) => setEditRideForm((prev) => ({ ...prev, from: e.target.value }))} placeholder="Pickup" />
+              <input className="rounded-xl border border-border bg-background px-3 py-2 text-sm" value={editRideForm.to} onChange={(e) => setEditRideForm((prev) => ({ ...prev, to: e.target.value }))} placeholder="Drop-off" />
+              <input className="rounded-xl border border-border bg-background px-3 py-2 text-sm" type="date" value={editRideForm.date} onChange={(e) => setEditRideForm((prev) => ({ ...prev, date: e.target.value }))} />
+              <input className="rounded-xl border border-border bg-background px-3 py-2 text-sm" type="time" value={editRideForm.departureTime} onChange={(e) => setEditRideForm((prev) => ({ ...prev, departureTime: e.target.value }))} />
+              <input className="rounded-xl border border-border bg-background px-3 py-2 text-sm" type="time" value={editRideForm.arrivalTime} onChange={(e) => setEditRideForm((prev) => ({ ...prev, arrivalTime: e.target.value }))} placeholder="ETA" />
+              <input className="rounded-xl border border-border bg-background px-3 py-2 text-sm" type="number" min="1" value={editRideForm.pricePerSeat} onChange={(e) => setEditRideForm((prev) => ({ ...prev, pricePerSeat: e.target.value }))} placeholder="Price per seat" />
+              <input className="rounded-xl border border-border bg-background px-3 py-2 text-sm" type="number" min="1" max="6" value={editRideForm.seats} onChange={(e) => setEditRideForm((prev) => ({ ...prev, seats: e.target.value }))} placeholder="Seats" />
+              <input className="rounded-xl border border-border bg-background px-3 py-2 text-sm" value={editRideForm.carModel} onChange={(e) => setEditRideForm((prev) => ({ ...prev, carModel: e.target.value }))} placeholder="Car model" />
+              <input className="rounded-xl border border-border bg-background px-3 py-2 text-sm" value={editRideForm.carNumberPlate} onChange={(e) => setEditRideForm((prev) => ({ ...prev, carNumberPlate: e.target.value.toUpperCase() }))} placeholder="Number plate" />
+              <input className="rounded-xl border border-border bg-background px-3 py-2 text-sm" value={editRideForm.paymentMethod} onChange={(e) => setEditRideForm((prev) => ({ ...prev, paymentMethod: e.target.value }))} placeholder="Payment method" />
+              <input className="rounded-xl border border-border bg-background px-3 py-2 text-sm" value={editRideForm.repeatDays} onChange={(e) => setEditRideForm((prev) => ({ ...prev, repeatDays: e.target.value }))} placeholder="Repeat days comma separated" />
+            </div>
+
+            <div className="mt-4 rounded-xl border border-dashed border-border p-3">
+              <input ref={editFileRef} type="file" accept="image/*" onChange={handleEditCarImage} className="hidden" />
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-foreground">Car photo</p>
+                  <p className="text-[11px] text-muted-foreground">Upload a fresh image if needed.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => editFileRef.current?.click()}
+                  disabled={isUploadingEditImage}
+                  className="rounded-lg bg-secondary px-3 py-2 text-xs font-semibold text-foreground disabled:opacity-60"
+                >
+                  {isUploadingEditImage ? "Uploading..." : "Replace image"}
+                </button>
+              </div>
+              {editRideForm.carImageUrl ? (
+                <img src={editRideForm.carImageUrl} alt="Car preview" className="h-36 w-full rounded-lg border border-border object-cover" />
+              ) : (
+                <div className="flex h-36 items-center justify-center rounded-lg border border-dashed border-border bg-background/60">
+                  <p className="text-xs text-muted-foreground">No car image uploaded.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={handleSaveRide}
+                disabled={isSavingRide}
+                className="flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+              >
+                {isSavingRide ? "Saving..." : "Save ride"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsEditingRide(false)}
+                className="flex-1 rounded-xl bg-secondary px-4 py-3 text-sm font-semibold text-foreground"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!isRideOwner && request && (
+          <div className="mt-4 rounded-2xl border border-border bg-card p-4">
+            <div className="mb-4 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setFeedbackKind("review")}
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                  feedbackKind === "review" ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"
+                }`}
+              >
+                Review
+              </button>
+              <button
+                type="button"
+                onClick={() => setFeedbackKind("report")}
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                  feedbackKind === "report" ? "bg-destructive text-destructive-foreground" : "bg-secondary text-foreground"
+                }`}
+              >
+                Report
+              </button>
+            </div>
+
+            {feedbackKind === "review" && (
+              <div className="mb-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rate your ride</p>
+                <div className="flex gap-2">
+                  {Array.from({ length: 5 }, (_, index) => index + 1).map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setFeedbackRating(value)}
+                      className={`h-10 w-10 rounded-xl border text-sm font-semibold ${
+                        feedbackRating === value
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-background text-foreground"
+                      }`}
+                    >
+                      {value}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <textarea
+              value={feedbackComment}
+              onChange={(e) => setFeedbackComment(e.target.value)}
+              placeholder={feedbackKind === "review" ? "Write a short review" : "Tell us what went wrong"}
+              className="min-h-24 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none"
+            />
+
+            <button
+              type="button"
+              onClick={handleSubmitFeedback}
+              disabled={isSubmittingFeedback}
+              className={`mt-3 w-full rounded-xl px-4 py-3 text-sm font-semibold disabled:opacity-60 ${
+                feedbackKind === "review"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-destructive text-destructive-foreground"
+              }`}
+            >
+              {isSubmittingFeedback
+                ? "Submitting..."
+                : feedbackKind === "review"
+                ? "Submit review"
+                : "Submit report"}
+            </button>
           </div>
         )}
       </div>

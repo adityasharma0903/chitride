@@ -4,6 +4,7 @@ import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
 import { RideModel, type RideDocument } from "../models/Ride.model.js";
 import { RideRequestModel, type RideRequestDocument } from "../models/RideRequest.model.js";
 import { UserModel } from "../models/User.model.js";
+import { createNotification, createManyNotifications } from "../services/notification.service.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { AppError } from "../utils/appError.js";
 import { generateETag, checkETag } from "../utils/etag.js";
@@ -95,6 +96,16 @@ export const requestRide = asyncHandler(async (req: AuthenticatedRequest, res: R
     },
     seatsRequested: parsed.seatsRequested,
     status: "pending",
+  });
+
+  await createNotification({
+    recipient: String(ride.owner),
+    actor: req.user.id,
+    ride: String(ride._id),
+    kind: "request_sent",
+    title: "New ride request",
+    body: `${requester.name} requested ${parsed.seatsRequested} seat(s) on your ride from ${ride.from} to ${ride.to}.`,
+    link: `/ride/${ride._id}?requestId=${created._id}`,
   });
 
   res.status(201).json({
@@ -236,9 +247,72 @@ export const updateRequestStatus = asyncHandler(async (req: AuthenticatedRequest
 
   const ride = await RideModel.findById(request.ride).lean();
 
+  await createNotification({
+    recipient: String(request.requester),
+    actor: req.user.id,
+    ride: String(request.ride),
+    kind: status === "approved" ? "request_approved" : "request_rejected",
+    title: status === "approved" ? "Ride request approved" : "Ride request rejected",
+    body:
+      status === "approved"
+        ? `Your request for ${request.seatsRequested} seat(s) on ${ride?.from || "the ride"} was approved.`
+        : `Your request for ${request.seatsRequested} seat(s) on ${ride?.from || "the ride"} was rejected.`,
+    link: `/ride/${request.ride}?requestId=${request._id}`,
+  });
+
   res.status(200).json({
     success: true,
     message: `Request ${status}`,
     data: mapRequestPayload(request.toObject() as RideRequestDocument, ride as RideDocument),
+  });
+});
+
+export const cancelMyBooking = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user?.id) {
+    throw new AppError("Unauthorized", 401);
+  }
+
+  const requestId = paramToString(req.params.requestId);
+  if (!Types.ObjectId.isValid(requestId)) {
+    throw new AppError("Invalid request id", 400);
+  }
+
+  const request = await RideRequestModel.findById(requestId);
+  if (!request) {
+    throw new AppError("Request not found", 404);
+  }
+
+  if (String(request.requester) !== req.user.id) {
+    throw new AppError("You are not allowed to cancel this booking", 403);
+  }
+
+  if (request.status === "approved") {
+    await RideModel.findOneAndUpdate(
+      { _id: request.ride },
+      {
+        $inc: { seatsAvailable: request.seatsRequested },
+      }
+    );
+  }
+
+  const ride = await RideModel.findById(request.ride).lean();
+
+  if (ride) {
+    await createNotification({
+      recipient: String(request.rideOwner),
+      actor: req.user.id,
+      ride: String(request.ride),
+      kind: "booking_cancelled",
+      title: "Booking cancelled",
+      body: `A booking for ${request.seatsRequested} seat(s) on ${ride.from} to ${ride.to} was cancelled.`,
+      link: `/ride/${request.ride}`,
+    });
+  }
+
+  await RideRequestModel.deleteOne({ _id: request._id });
+
+  res.status(200).json({
+    success: true,
+    message: "Booking cancelled successfully",
   });
 });

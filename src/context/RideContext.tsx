@@ -31,11 +31,26 @@ export interface ChatMessage {
   timestamp: string;
 }
 
+export interface NotificationItem {
+  id: string;
+  kind: "request_sent" | "request_approved" | "request_rejected" | "booking_cancelled" | "ride_deleted";
+  title: string;
+  body: string;
+  link: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
 interface RideContextType {
   rides: Ride[];
   isLoading: boolean;
   refreshData: () => Promise<void>;
   addRide: (ride: CreateRideInput) => Promise<{ success: boolean; message: string }>;
+  updateRide: (
+    rideId: string,
+    ride: Partial<CreateRideInput>
+  ) => Promise<{ success: boolean; message: string }>;
+  deleteRide: (rideId: string) => Promise<{ success: boolean; message: string }>;
   requests: RideRequest[];
   sendRequest: (
     rideId: string,
@@ -43,18 +58,23 @@ interface RideContextType {
   ) => Promise<{ success: boolean; message: string }>;
   approveRequest: (requestId: string) => Promise<{ success: boolean; message: string }>;
   rejectRequest: (requestId: string) => Promise<{ success: boolean; message: string }>;
+  cancelBooking: (requestId: string) => Promise<{ success: boolean; message: string }>;
   getRequestForRide: (rideId: string) => RideRequest | undefined;
   getRequestsForMyRides: () => RideRequest[];
   chatMessages: ChatMessage[];
+  notifications: NotificationItem[];
   sendMessage: (rideId: string, text: string, senderRole: "requester" | "offerer") => void;
   getMessagesForRide: (rideId: string) => ChatMessage[];
+  markNotificationRead: (notificationId: string) => Promise<{ success: boolean; message: string }>;
   currentUser: {
+    id?: string;
     name: string;
     email: string;
     phone?: string;
     branch?: string;
     year?: string;
     organization?: string;
+    profileImageUrl?: string;
   };
 }
 
@@ -91,6 +111,7 @@ export const RideProvider = ({ children }: { children: React.ReactNode }) => {
   const [rides, setRides] = useState<Ride[]>([]);
   const [requests, setRequests] = useState<RideRequest[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const refreshInFlightRef = useRef(false);
 
@@ -117,16 +138,18 @@ export const RideProvider = ({ children }: { children: React.ReactNode }) => {
     if (!currentUser?.id) {
       setRides([]);
       setRequests([]);
+      setNotifications([]);
       return;
     }
 
     refreshInFlightRef.current = true;
     setIsLoading(true);
     try {
-      const [allRides, incoming, mine] = await Promise.all([
+      const [allRides, incoming, mine, notificationResponse] = await Promise.all([
         apiRequest<ApiResponse<Ride[]>>("/rides"),
         apiRequest<ApiResponse<RideRequest[]>>("/requests/incoming"),
         apiRequest<ApiResponse<RideRequest[]>>("/requests/mine"),
+        apiRequest<ApiResponse<NotificationItem[]>>("/notifications"),
       ]);
 
       const rideMap = new Map<string, Ride>();
@@ -136,6 +159,7 @@ export const RideProvider = ({ children }: { children: React.ReactNode }) => {
 
       setRides(Array.from(rideMap.values()));
       setRequests(mergeRequests([...(incoming.data || []), ...(mine.data || [])]));
+      setNotifications(notificationResponse.data || []);
     } finally {
       refreshInFlightRef.current = false;
       setIsLoading(false);
@@ -204,6 +228,48 @@ export const RideProvider = ({ children }: { children: React.ReactNode }) => {
           return { success: false, message: error.message };
         }
         return { success: false, message: "Failed to post ride" };
+      }
+    },
+    [refreshInBackground]
+  );
+
+  const updateRide = useCallback(
+    async (rideId: string, ride: Partial<CreateRideInput>) => {
+      try {
+        const response = await apiRequest<ApiResponse<Ride>>(`/rides/${rideId}`, {
+          method: "PATCH",
+          body: JSON.stringify(ride),
+        });
+
+        setRides((prev) => prev.map((item) => (item.id === rideId ? response.data : item)));
+        refreshInBackground();
+        return { success: true, message: response.message || "Ride updated successfully" };
+      } catch (error) {
+        if (error instanceof ApiError) {
+          return { success: false, message: error.message };
+        }
+        return { success: false, message: "Failed to update ride" };
+      }
+    },
+    [refreshInBackground]
+  );
+
+  const deleteRide = useCallback(
+    async (rideId: string) => {
+      try {
+        const response = await apiRequest<ApiResponse<null>>(`/rides/${rideId}`, {
+          method: "DELETE",
+        });
+
+        setRides((prev) => prev.filter((item) => item.id !== rideId));
+        setRequests((prev) => prev.filter((request) => request.rideId !== rideId));
+        refreshInBackground();
+        return { success: true, message: response.message || "Ride deleted successfully" };
+      } catch (error) {
+        if (error instanceof ApiError) {
+          return { success: false, message: error.message };
+        }
+        return { success: false, message: "Failed to delete ride" };
       }
     },
     [refreshInBackground]
@@ -291,6 +357,45 @@ export const RideProvider = ({ children }: { children: React.ReactNode }) => {
     [refreshInBackground]
   );
 
+  const cancelBooking = useCallback(
+    async (requestId: string) => {
+      try {
+        const response = await apiRequest<ApiResponse<null>>(`/requests/${requestId}`, {
+          method: "DELETE",
+        });
+
+        setRequests((prev) => prev.filter((request) => request.id !== requestId));
+        refreshInBackground();
+        return { success: true, message: response.message || "Booking cancelled successfully" };
+      } catch (error) {
+        if (error instanceof ApiError) {
+          return { success: false, message: error.message };
+        }
+        return { success: false, message: "Failed to cancel booking" };
+      }
+    },
+    [refreshInBackground]
+  );
+
+  const markNotificationRead = useCallback(async (notificationId: string) => {
+    try {
+      const response = await apiRequest<ApiResponse<NotificationItem>>(`/notifications/${notificationId}/read`, {
+        method: "PATCH",
+      });
+
+      setNotifications((prev) =>
+        prev.map((item) => (item.id === notificationId ? { ...item, isRead: true } : item))
+      );
+
+      return { success: true, message: response.message || "Notification marked as read" };
+    } catch (error) {
+      if (error instanceof ApiError) {
+        return { success: false, message: error.message };
+      }
+      return { success: false, message: "Failed to update notification" };
+    }
+  }, []);
+
   const getRequestForRide = useCallback(
     (rideId: string) =>
       requests.find(
@@ -334,15 +439,20 @@ export const RideProvider = ({ children }: { children: React.ReactNode }) => {
         isLoading,
         refreshData,
         addRide,
+        updateRide,
+        deleteRide,
         requests,
         sendRequest,
         approveRequest,
         rejectRequest,
+        cancelBooking,
         getRequestForRide,
         getRequestsForMyRides,
         chatMessages,
+        notifications,
         sendMessage,
         getMessagesForRide,
+        markNotificationRead,
         currentUser,
       }}
     >
