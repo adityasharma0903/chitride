@@ -7,6 +7,9 @@ interface MessageDocument {
     email: string;
   };
   content: string;
+  attachmentUrl?: string;
+  attachmentName?: string;
+  attachmentType?: string;
   timestamp: Date;
 }
 
@@ -23,7 +26,10 @@ const chatSchema = new Schema(
           name: { type: String, required: true },
           email: { type: String, required: true },
         },
-        content: { type: String, required: true },
+        content: { type: String, default: "" },
+        attachmentUrl: { type: String, default: "" },
+        attachmentName: { type: String, default: "" },
+        attachmentType: { type: String, default: "" },
         timestamp: { type: Date, default: Date.now },
       },
        ],

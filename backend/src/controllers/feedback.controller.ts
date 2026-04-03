@@ -4,6 +4,7 @@ import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
 import { RideModel } from "../models/Ride.model.js";
 import { RideRequestModel } from "../models/RideRequest.model.js";
 import { RideFeedbackModel } from "../models/RideFeedback.model.js";
+import { UserModel } from "../models/User.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { AppError } from "../utils/appError.js";
 import { createFeedbackSchema } from "../validators/feedback.validator.js";
@@ -125,5 +126,60 @@ export const getMyFeedback = asyncHandler(async (req: AuthenticatedRequest, res:
       received: received.map(withRide),
       given: given.map(withRide),
     },
+  });
+});
+
+export const getUserReviews = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user?.id) {
+    throw new AppError("Unauthorized", 401);
+  }
+
+  const userId = paramToString(req.params.userId);
+  if (!Types.ObjectId.isValid(userId)) {
+    throw new AppError("Invalid user id", 400);
+  }
+
+  const reviews = await RideFeedbackModel.find({
+    targetUser: userId,
+    kind: "review",
+  })
+    .sort({ createdAt: -1 })
+    .limit(20)
+    .lean();
+
+  const [rideMap, authors] = await Promise.all([
+    buildRideMap([...new Set(reviews.map((item) => String(item.ride)))]),
+    UserModel.find({ _id: { $in: [...new Set(reviews.map((item) => String(item.author)))] } })
+      .select("name branch year")
+      .lean(),
+  ]);
+
+  const authorMap = new Map<string, { name?: string; branch?: string; year?: string }>();
+  authors.forEach((author) => {
+    authorMap.set(String(author._id), {
+      name: author.name,
+      branch: author.branch,
+      year: author.year,
+    });
+  });
+
+  res.status(200).json({
+    success: true,
+    data: reviews.map((item) => {
+      const ride = rideMap.get(String(item.ride));
+      const author = authorMap.get(String(item.author));
+
+      return {
+        id: String(item._id),
+        rating: item.rating ?? null,
+        comment: item.comment,
+        createdAt: item.createdAt,
+        rideFrom: ride?.from || "",
+        rideTo: ride?.to || "",
+        authorName: author?.name || "Rider",
+        authorBranch: author?.branch || "",
+        authorYear: author?.year || "",
+      };
+    }),
   });
 });

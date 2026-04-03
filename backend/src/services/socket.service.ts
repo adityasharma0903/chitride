@@ -7,6 +7,13 @@ import { RideModel } from "../models/Ride.model.js";
 import { RideRequestModel } from "../models/RideRequest.model.js";
 import { UserModel } from "../models/User.model.js";
 
+let ioInstance: SocketIOServer | null = null;
+
+export const emitToUser = (userId: string, event: string, payload: unknown) => {
+  if (!ioInstance || !userId) return;
+  ioInstance.to(`user:${userId}`).emit(event, payload);
+};
+
 interface JwtPayload {
   sub: string;
   email: string;
@@ -21,6 +28,12 @@ interface RideLocationPayload {
   heading?: number;
   speed?: number;
   timestamp?: string;
+}
+
+interface ChatMessagePayload {
+  rideId: string;
+  requestId: string;
+  content: string;
 }
 
 const liveRideCache = new Map<
@@ -51,6 +64,7 @@ export const initializeSocket = (httpServer: Server) => {
       credentials: true,
     },
   });
+  ioInstance = io;
 
   // Middleware to authenticate socket connections
   io.use((socket, next) => {
@@ -74,6 +88,7 @@ export const initializeSocket = (httpServer: Server) => {
 
   io.on("connection", (socket) => {
     const userId = socket.data.userId as string;
+    socket.join(`user:${userId}`);
 
     const authorizeRideAccess = async (rideId: string, requestId: string) => {
       const ride = await RideModel.findById(rideId);
@@ -157,17 +172,22 @@ export const initializeSocket = (httpServer: Server) => {
           });
         }
 
-        // Update last read
-        if (isDriver) {
-          chat.lastReadByDriver = new Date();
-        } else {
-          chat.lastReadByRider = new Date();
-        }
-        await chat.save();
+        const now = new Date();
+        // Update read marker without validating entire messages array.
+        await ChatModel.updateOne(
+          { _id: chat._id },
+          { $set: isDriver ? { lastReadByDriver: now } : { lastReadByRider: now } }
+        );
+
+        const safeMessages = (chat.messages || []).filter(
+          (item) => typeof item.content === "string" && item.content.trim().length > 0
+        );
 
         socket.emit("chat-history", {
-          messages: chat.messages,
+          messages: safeMessages,
           chatId: chat._id,
+          lastReadByDriver: isDriver ? now : chat.lastReadByDriver,
+          lastReadByRider: isDriver ? chat.lastReadByRider : now,
         });
 
         // Notify others in the room that user has joined
@@ -181,7 +201,7 @@ export const initializeSocket = (httpServer: Server) => {
     });
 
     // Send message
-    socket.on("new-message", async (data: { rideId: string; requestId: string; content: string }) => {
+    socket.on("new-message", async (data: ChatMessagePayload) => {
       try {
         const { rideId, requestId, content } = data;
 
@@ -254,6 +274,7 @@ export const initializeSocket = (httpServer: Server) => {
       socket.to(roomId).emit("user-typing", {
         userId,
         userEmail: socket.data.userEmail,
+        userName: socket.data.senderName,
       });
     });
 

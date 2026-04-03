@@ -6,7 +6,6 @@ import RideCard from "@/components/RideCard";
 import { useRideContext } from "@/context/RideContext";
 import {
   fetchPlaceSuggestions,
-  getLocationBaseName,
   getLocationInputLabel,
   normalizeLocationText,
   type PlaceSuggestion,
@@ -26,8 +25,16 @@ const SearchRide = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [appliedMinSeats, setAppliedMinSeats] = useState(0);
   const [appliedMaxPricePerMile, setAppliedMaxPricePerMile] = useState<number | null>(null);
+  const [appliedBranch, setAppliedBranch] = useState("");
+  const [appliedCarType, setAppliedCarType] = useState("");
+  const [appliedDepartureFrom, setAppliedDepartureFrom] = useState("");
+  const [appliedDepartureTo, setAppliedDepartureTo] = useState("");
   const [draftMinSeats, setDraftMinSeats] = useState(0);
   const [draftMaxPricePerMile, setDraftMaxPricePerMile] = useState<number | null>(null);
+  const [draftBranch, setDraftBranch] = useState("");
+  const [draftCarType, setDraftCarType] = useState("");
+  const [draftDepartureFrom, setDraftDepartureFrom] = useState("");
+  const [draftDepartureTo, setDraftDepartureTo] = useState("");
   const [selectedRideId, setSelectedRideId] = useState<string | null>(null);
   const [seatsToRequest, setSeatsToRequest] = useState(1);
 
@@ -100,24 +107,54 @@ const SearchRide = () => {
     return normalizedRide.includes(normalizedQuery) || normalizedQuery.includes(normalizedRide);
   };
 
+  const timeToMinutes = (value: string) => {
+    const [hoursText, minutesText] = value.split(":");
+    const hours = Number.parseInt(hoursText || "", 10);
+    const minutes = Number.parseInt(minutesText || "", 10);
+
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+      return null;
+    }
+
+    return hours * 60 + minutes;
+  };
+
   const filteredRides = rides.filter((r) => {
     const matchFrom = locationMatches(r.from, from);
     const matchTo = locationMatches(r.to, to);
     const priceValue = Number.parseFloat(r.pricePerSeat.replace(/[^\d.]/g, ""));
     const seatMatch = appliedMinSeats === 0 || r.seats >= appliedMinSeats;
     const priceMatch = appliedMaxPricePerMile === null || priceValue <= appliedMaxPricePerMile;
-    return matchFrom && matchTo && seatMatch && priceMatch;
+    const branchMatch = !appliedBranch.trim() || normalizeLocationText(r.driverBranch || "").includes(normalizeLocationText(appliedBranch));
+    const carTypeMatch = !appliedCarType.trim() || normalizeLocationText(r.carModel || "").includes(normalizeLocationText(appliedCarType));
+    const departureMinutes = timeToMinutes(r.departureTime);
+    const earliestMinutes = appliedDepartureFrom ? timeToMinutes(appliedDepartureFrom) : null;
+    const latestMinutes = appliedDepartureTo ? timeToMinutes(appliedDepartureTo) : null;
+    const timeMatch =
+      departureMinutes === null ||
+      ((earliestMinutes === null || departureMinutes >= earliestMinutes) &&
+        (latestMinutes === null || departureMinutes <= latestMinutes));
+
+    return matchFrom && matchTo && seatMatch && priceMatch && branchMatch && carTypeMatch && timeMatch;
   });
 
   const handleFilterClick = () => {
     setDraftMinSeats(appliedMinSeats);
     setDraftMaxPricePerMile(appliedMaxPricePerMile);
+    setDraftBranch(appliedBranch);
+    setDraftCarType(appliedCarType);
+    setDraftDepartureFrom(appliedDepartureFrom);
+    setDraftDepartureTo(appliedDepartureTo);
     setShowFilters(true);
   };
 
   const handleApplyFilters = () => {
     setAppliedMinSeats(draftMinSeats);
     setAppliedMaxPricePerMile(draftMaxPricePerMile);
+    setAppliedBranch(draftBranch);
+    setAppliedCarType(draftCarType);
+    setAppliedDepartureFrom(draftDepartureFrom);
+    setAppliedDepartureTo(draftDepartureTo);
     setShowFilters(false);
     toast.success("Filter changes applied.");
   };
@@ -125,9 +162,19 @@ const SearchRide = () => {
   const handleResetFilters = () => {
     setDraftMinSeats(0);
     setDraftMaxPricePerMile(null);
+    setDraftBranch("");
+    setDraftCarType("");
+    setDraftDepartureFrom("");
+    setDraftDepartureTo("");
   };
 
-  const activeFilterCount = Number(appliedMinSeats > 0) + Number(appliedMaxPricePerMile !== null);
+  const activeFilterCount =
+    Number(appliedMinSeats > 0) +
+    Number(appliedMaxPricePerMile !== null) +
+    Number(appliedBranch.trim().length > 0) +
+    Number(appliedCarType.trim().length > 0) +
+    Number(appliedDepartureFrom.trim().length > 0) +
+    Number(appliedDepartureTo.trim().length > 0);
 
   return (
     <div className="app-container desktop-premium-page bg-background min-h-screen pb-24 md:pb-8">
@@ -363,6 +410,48 @@ const SearchRide = () => {
                     {option.label}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            <div className="mb-5 grid gap-3 md:grid-cols-2">
+              <div>
+                <p className="mb-2 text-sm font-semibold text-foreground">Branch</p>
+                <input
+                  value={draftBranch}
+                  onChange={(e) => setDraftBranch(e.target.value)}
+                  placeholder="e.g. CSE, ECE"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none"
+                />
+              </div>
+              <div>
+                <p className="mb-2 text-sm font-semibold text-foreground">Car type</p>
+                <input
+                  value={draftCarType}
+                  onChange={(e) => setDraftCarType(e.target.value)}
+                  placeholder="e.g. Swift, Sedan"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="mb-8 grid gap-3 md:grid-cols-2">
+              <div>
+                <p className="mb-2 text-sm font-semibold text-foreground">Departure from</p>
+                <input
+                  type="time"
+                  value={draftDepartureFrom}
+                  onChange={(e) => setDraftDepartureFrom(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none"
+                />
+              </div>
+              <div>
+                <p className="mb-2 text-sm font-semibold text-foreground">Departure to</p>
+                <input
+                  type="time"
+                  value={draftDepartureTo}
+                  onChange={(e) => setDraftDepartureTo(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none"
+                />
               </div>
             </div>
 

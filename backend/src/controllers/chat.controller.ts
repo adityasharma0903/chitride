@@ -58,20 +58,25 @@ export const getChatHistory = asyncHandler(async (req: AuthenticatedRequest, res
     });
   }
 
-  // Update last read timestamp
-  if (isDriver) {
-    chat.lastReadByDriver = new Date();
-  } else {
-    chat.lastReadByRider = new Date();
-  }
-  await chat.save();
+  const now = new Date();
+  // Update read markers without validating legacy malformed message documents.
+  await ChatModel.updateOne(
+    { _id: chat._id },
+    { $set: isDriver ? { lastReadByDriver: now } : { lastReadByRider: now } }
+  );
+
+  const safeMessages = (chat.messages || []).filter(
+    (item) => typeof item.content === "string" && item.content.trim().length > 0
+  );
 
   res.status(200).json({
     success: true,
     data: {
       id: chat._id,
-      messages: chat.messages,
+      messages: safeMessages,
       lastMessage: chat.lastMessage,
+      lastReadByDriver: isDriver ? now : chat.lastReadByDriver,
+      lastReadByRider: isDriver ? chat.lastReadByRider : now,
     },
   });
 });
@@ -113,38 +118,35 @@ export const sendMessage = asyncHandler(async (req: AuthenticatedRequest, res: R
     throw new AppError("You are not involved in this ride", 403);
   }
 
-  let chat = await ChatModel.findOne({
-    ride: rideId,
-    rideRequest: requestId,
-  });
-
-  if (!chat) {
-    chat = await ChatModel.create({
-      ride: rideId,
-      rideRequest: requestId,
-      driver: ride.owner,
-      rider: request.requester,
-      messages: [],
-    });
-  }
-
   const message = {
     sender: {
       id: req.user.id,
        name: req.user?.name || "User",
       email: req.user.email || "",
     },
-    content: content.trim(),
+    content: typeof content === "string" ? content.trim() : "",
     timestamp: new Date(),
   };
 
-  chat.messages.push(message);
-  chat.lastMessage = {
-    content: message.content,
-    timestamp: message.timestamp,
-  };
-
-  await chat.save();
+  await ChatModel.updateOne(
+    { ride: rideId, rideRequest: requestId },
+    {
+      $setOnInsert: {
+        ride: rideId,
+        rideRequest: requestId,
+        driver: ride.owner,
+        rider: request.requester,
+      },
+      $push: { messages: message },
+      $set: {
+        lastMessage: {
+          content: message.content,
+          timestamp: message.timestamp,
+        },
+      },
+    },
+    { upsert: true }
+  );
 
   res.status(201).json({
     success: true,

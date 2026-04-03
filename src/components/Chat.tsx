@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, CheckCheck, Check } from "lucide-react";
 import { useSocket } from "@/context/SocketContext";
 import { useRideContext } from "@/context/RideContext";
 import { apiRequest } from "@/lib/api";
@@ -10,14 +10,18 @@ interface ChatProps {
   requestId: string;
   driverName: string;
   riderName: string;
+  driverEmail: string;
+  riderEmail: string;
 }
 
-const Chat = ({ rideId, requestId, driverName, riderName }: ChatProps) => {
-  const { messages, setMessages, sendMessage, joinChat, leaveChat, isTyping } = useSocket();
+const Chat = ({ rideId, requestId, driverName, riderName, driverEmail, riderEmail }: ChatProps) => {
+  const { messages, setMessages, sendMessage, joinChat, leaveChat, isTyping, typingUser, socket } = useSocket();
   const { currentUser } = useRideContext();
   const [content, setContent] = useState("");
   const [isSending, setIsSending] = useState(false);
   const messagesEnd = useRef<HTMLDivElement>(null);
+  const typingTimerRef = useRef<number | null>(null);
+  const lastReadRef = useRef<{ lastReadByDriver?: string; lastReadByRider?: string }>({});
 
   useEffect(() => {
     const loadChatHistory = async () => {
@@ -30,10 +34,16 @@ const Chat = ({ rideId, requestId, driverName, riderName }: ChatProps) => {
               content: string;
               timestamp: string;
             }>;
+            lastReadByDriver?: string;
+            lastReadByRider?: string;
           };
         }>(`/chat/${rideId}/${requestId}`);
 
         const historyMessages = response.data?.messages || [];
+        lastReadRef.current = {
+          lastReadByDriver: response.data?.lastReadByDriver,
+          lastReadByRider: response.data?.lastReadByRider,
+        };
         setMessages(
           historyMessages.map((message) => ({
             sender: message.sender,
@@ -57,6 +67,15 @@ const Chat = ({ rideId, requestId, driverName, riderName }: ChatProps) => {
     messagesEnd.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  useEffect(() => {
+    return () => {
+      socket?.emit("stop-typing", { rideId, requestId });
+      if (typingTimerRef.current) {
+        window.clearTimeout(typingTimerRef.current);
+      }
+    };
+  }, [socket, rideId, requestId]);
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim()) return;
@@ -70,7 +89,28 @@ const Chat = ({ rideId, requestId, driverName, riderName }: ChatProps) => {
     }
     setContent("");
     setIsSending(false);
+    socket?.emit("stop-typing", { rideId, requestId });
   };
+
+  const handleTyping = (value: string) => {
+    setContent(value);
+    socket?.emit("typing", { rideId, requestId });
+    if (typingTimerRef.current) {
+      window.clearTimeout(typingTimerRef.current);
+    }
+    typingTimerRef.current = window.setTimeout(() => {
+      socket?.emit("stop-typing", { rideId, requestId });
+      typingTimerRef.current = null;
+    }, 1000);
+  };
+
+  const otherPartyReadAt = currentUser.email === driverEmail
+    ? lastReadRef.current.lastReadByRider
+    : currentUser.email === riderEmail
+      ? lastReadRef.current.lastReadByDriver
+      : undefined;
+
+  const typingLabel = typingUser && typingUser !== currentUser.email ? `${typingUser} is typing...` : "";
 
   return (
     <div className="flex flex-col h-full bg-card rounded-xl border border-border">
@@ -81,6 +121,11 @@ const Chat = ({ rideId, requestId, driverName, riderName }: ChatProps) => {
           <p className="text-xs text-muted-foreground">
             {currentUser?.name === driverName ? riderName : driverName}
           </p>
+          {(typingLabel || otherPartyReadAt) && (
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {typingLabel || (otherPartyReadAt ? `Seen ${new Date(otherPartyReadAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "")}
+            </p>
+          )}
         </div>
       </div>
 
@@ -116,6 +161,16 @@ const Chat = ({ rideId, requestId, driverName, riderName }: ChatProps) => {
                     hour: "2-digit",
                     minute: "2-digit",
                   })}
+                  {msg.sender.email === currentUser?.email && otherPartyReadAt && new Date(msg.timestamp).getTime() <= new Date(otherPartyReadAt).getTime() && (
+                    <span className="ml-2 inline-flex items-center gap-1">
+                      <CheckCheck className="h-3 w-3" /> Seen
+                    </span>
+                  )}
+                  {msg.sender.email === currentUser?.email && !otherPartyReadAt && (
+                    <span className="ml-2 inline-flex items-center gap-1">
+                      <Check className="h-3 w-3" /> Sent
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
@@ -143,7 +198,8 @@ const Chat = ({ rideId, requestId, driverName, riderName }: ChatProps) => {
         <input
           type="text"
           value={content}
-          onChange={(e) => setContent(e.target.value)}
+          onChange={(e) => handleTyping(e.target.value)}
+          onBlur={() => socket?.emit("stop-typing", { rideId, requestId })}
           placeholder="Type a message..."
           maxLength={500}
           className="flex-1 px-4 py-2 rounded-lg bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 text-sm"

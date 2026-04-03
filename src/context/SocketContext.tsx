@@ -82,12 +82,14 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       setMessages((prev) => [...prev, { ...message, timestamp: new Date(message.timestamp) }]);
     });
 
-    newSocket.on("user-typing", () => {
+    newSocket.on("user-typing", (payload: { userEmail?: string; userId?: string; userName?: string }) => {
       setIsTyping(true);
+      setTypingUser(payload.userName || payload.userEmail || payload.userId || "Someone");
     });
 
     newSocket.on("user-stop-typing", () => {
       setIsTyping(false);
+      setTypingUser(null);
     });
 
     newSocket.on("error", (error: string) => {

@@ -24,7 +24,7 @@ const toRidePayload = (ride: RideDocument) => ({
 
 const mapRidePayload = (ride: RideDocument) => ({
   id: String(ride._id),
-  ownerId: String(ride.owner),
+  ownerId: ride.owner ? String(ride.owner) : "",
   driverName: (toRidePayload(ride).ownerSnapshot.name || "Driver").trim(),
   driverEmail: toRidePayload(ride).ownerSnapshot.email,
   driverPhone: toRidePayload(ride).ownerSnapshot.phone,
@@ -67,7 +67,7 @@ export const getRides = asyncHandler(async (req: AuthenticatedRequest, res: Resp
   }
 
   const rides = await RideModel.find(query)
-    .select("ownerSnapshot from to date departureTime arrivalTime pricePerSeat seatsAvailable carModel carNumberPlate carImageUrl createdAt")
+    .select("owner ownerSnapshot from to date departureTime arrivalTime pricePerSeat seatsAvailable carModel carNumberPlate carImageUrl createdAt")
     .sort({ createdAt: -1 })
     .lean();
 
@@ -107,7 +107,7 @@ export const getMyRides = asyncHandler(async (req: AuthenticatedRequest, res: Re
   }
 
   const rides = await RideModel.find({ owner: req.user.id })
-    .select("ownerSnapshot from to date departureTime arrivalTime pricePerSeat seatsAvailable carModel carNumberPlate carImageUrl createdAt")
+    .select("owner ownerSnapshot from to date departureTime arrivalTime pricePerSeat seatsAvailable carModel carNumberPlate carImageUrl createdAt")
     .sort({ createdAt: -1 })
     .lean();
 

@@ -23,11 +23,23 @@ import { uploadImageToCloudinary } from "@/lib/cloudinary";
 import { apiRequest, ApiError } from "@/lib/api";
 import { toast } from "sonner";
 
+type DriverReview = {
+  id: string;
+  rating: number | null;
+  comment: string;
+  createdAt: string;
+  rideFrom: string;
+  rideTo: string;
+  authorName: string;
+  authorBranch: string;
+  authorYear: string;
+};
+
 const RideDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { rides, requests, currentUser, sendRequest, getRequestForRide, updateRide, deleteRide } = useRideContext();
+  const { rides, requests, currentUser, sendRequest, getRequestForRide, updateRide, deleteRide, cancelBooking } = useRideContext();
 
   const [request, setRequest] = useState<ReturnType<typeof getRequestForRide>>(undefined);
   const [showSeatSelection, setShowSeatSelection] = useState(false);
@@ -38,6 +50,10 @@ const RideDetail = () => {
   const [isDeletingRide, setIsDeletingRide] = useState(false);
   const [isUploadingEditImage, setIsUploadingEditImage] = useState(false);
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [isCancellingRequest, setIsCancellingRequest] = useState(false);
+  const [isLoadingDriverReviews, setIsLoadingDriverReviews] = useState(false);
+  const [driverReviewsError, setDriverReviewsError] = useState("");
+  const [driverReviews, setDriverReviews] = useState<DriverReview[]>([]);
   const [feedbackKind, setFeedbackKind] = useState<"review" | "report">("review");
   const [feedbackRating, setFeedbackRating] = useState(5);
   const [feedbackComment, setFeedbackComment] = useState("");
@@ -102,6 +118,60 @@ const RideDetail = () => {
       carImageUrl: ride.carImageUrl || "",
     });
   }, [ride]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadDriverReviews = async () => {
+      setIsLoadingDriverReviews(true);
+      setDriverReviewsError("");
+
+      try {
+        let targetOwnerId = ride?.ownerId;
+        if (targetOwnerId === "undefined" || targetOwnerId === "null") {
+          targetOwnerId = "";
+        }
+
+        // Fallback for stale cached ride payloads that may miss ownerId.
+        if (!targetOwnerId && id) {
+          const rideResponse = await apiRequest<{ success: boolean; data?: { ownerId?: string } }>(
+            `/rides/${id}`
+          );
+          targetOwnerId = rideResponse.data?.ownerId;
+          if (targetOwnerId === "undefined" || targetOwnerId === "null") {
+            targetOwnerId = "";
+          }
+        }
+
+        if (!targetOwnerId) {
+          if (!active) return;
+          setDriverReviews([]);
+          return;
+        }
+
+        const response = await apiRequest<{ success: boolean; data: DriverReview[] }>(
+          `/feedback/users/${targetOwnerId}/reviews`
+        );
+
+        if (!active) return;
+        setDriverReviews(response.data || []);
+      } catch (error) {
+        if (!active) return;
+        const message = error instanceof ApiError ? error.message : "Failed to load reviews";
+        setDriverReviewsError(message);
+      } finally {
+        if (active) {
+          setIsLoadingDriverReviews(false);
+        }
+      }
+    };
+
+    void loadDriverReviews();
+
+    return () => {
+      active = false;
+    };
+  }, [ride?.ownerId, id]);
 
   if (!ride) {
     return (
@@ -283,7 +353,7 @@ const RideDetail = () => {
 
     setIsSubmittingFeedback(true);
     try {
-      const response = await apiRequest<{ success: boolean; message: string }>(`/rides/${ride.id}/feedback`, {
+      const response = await apiRequest<{ success: boolean; message: string }>(`/feedback/${ride.id}/feedback`, {
         method: "POST",
         body: JSON.stringify({
           kind: feedbackKind,
@@ -300,6 +370,24 @@ const RideDetail = () => {
       toast.error(message);
     } finally {
       setIsSubmittingFeedback(false);
+    }
+  };
+
+  const handleCancelRequest = async () => {
+    if (!request?.id) return;
+
+    setIsCancellingRequest(true);
+    try {
+      const result = await cancelBooking(request.id);
+      if (!result.success) {
+        toast.error(result.message);
+        return;
+      }
+
+      setRequest(undefined);
+      toast.success(request.status === "pending" ? "Request cancelled." : "Booking cancelled.");
+    } finally {
+      setIsCancellingRequest(false);
     }
   };
 
@@ -528,8 +616,56 @@ const RideDetail = () => {
                 </p>
               </div>
             </div>
+
+            {request.status !== "rejected" && (
+              <button
+                type="button"
+                onClick={handleCancelRequest}
+                disabled={isCancellingRequest}
+                className="mt-4 w-full rounded-xl bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive disabled:opacity-60"
+              >
+                {isCancellingRequest
+                  ? "Cancelling..."
+                  : request.status === "pending"
+                  ? "Cancel request"
+                  : "Cancel booking"}
+              </button>
+            )}
           </div>
         )}
+
+        <div className="mt-4 rounded-2xl border border-border bg-card p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-sm font-semibold text-foreground">Driver reviews</p>
+            <span className="text-xs text-muted-foreground">{driverReviews.length}</span>
+          </div>
+
+          {isLoadingDriverReviews ? (
+            <p className="text-xs text-muted-foreground">Loading reviews...</p>
+          ) : driverReviewsError ? (
+            <p className="text-xs text-destructive">{driverReviewsError}</p>
+          ) : driverReviews.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No reviews yet for this driver.</p>
+          ) : (
+            <div className="space-y-2">
+              {driverReviews.slice(0, 6).map((review) => (
+                <div key={review.id} className="rounded-xl border border-border bg-background p-3">
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold text-foreground">{review.authorName}</p>
+                    <p className="text-xs text-muted-foreground">{review.rating ? `${review.rating}/5` : "-"}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {review.authorBranch || "Branch"} {review.authorYear ? `• ${review.authorYear}` : ""}
+                  </p>
+                  <p className="mt-1 text-sm text-foreground">{review.comment}</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    {review.rideFrom && review.rideTo ? `${review.rideFrom} → ${review.rideTo}` : "Ride review"}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {isRideOwner && isEditingRide && (
           <div className="mt-4 rounded-2xl border border-border bg-card p-4">
@@ -759,6 +895,8 @@ const RideDetail = () => {
               requestId={activeRequest.id}
               driverName={ride.driverName}
               riderName={activeRequest.requesterName || "Rider"}
+              driverEmail={ride.driverEmail || ""}
+              riderEmail={activeRequest.requesterEmail || ""}
             />
           ) : (
             <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-border bg-card/70 p-6 text-center backdrop-blur-xl">

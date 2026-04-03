@@ -7,6 +7,7 @@ import {
   type UserAccount,
 } from "@/lib/auth";
 import { ApiError, apiRequest } from "@/lib/api";
+import { useSocket } from "@/context/SocketContext";
 
 export interface RideRequest {
   id: string;
@@ -108,6 +109,7 @@ export const useRideContext = () => {
 };
 
 export const RideProvider = ({ children }: { children: React.ReactNode }) => {
+  const { socket } = useSocket();
   const [rides, setRides] = useState<Ride[]>([]);
   const [requests, setRequests] = useState<RideRequest[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -211,6 +213,20 @@ export const RideProvider = ({ children }: { children: React.ReactNode }) => {
       window.removeEventListener("focus", onFocus);
     };
   }, [currentUser?.id, refreshInBackground]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleRealtimeRequestUpdate = () => {
+      refreshInBackground();
+    };
+
+    socket.on("ride-request-updated", handleRealtimeRequestUpdate);
+
+    return () => {
+      socket.off("ride-request-updated", handleRealtimeRequestUpdate);
+    };
+  }, [socket, refreshInBackground]);
 
   const addRide = useCallback(
     async (ride: CreateRideInput) => {

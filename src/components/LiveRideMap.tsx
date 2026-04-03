@@ -203,6 +203,9 @@ const LiveRideMap = ({ from, to, rideId, requestId, isDriver = false }: LiveRide
           color: "#ef5b7f",
           weight: 4,
           opacity: 0.95,
+          lineCap: "round",
+          lineJoin: "round",
+          dashArray: "8 8",
         }).addTo(layerGroupRef.current);
 
         const pickupMarker = L.marker(routePoints[0] as L.LatLngExpression, { icon: createStopIcon("#ef5b7f") })

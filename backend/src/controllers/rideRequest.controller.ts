@@ -5,6 +5,7 @@ import { RideModel, type RideDocument } from "../models/Ride.model.js";
 import { RideRequestModel, type RideRequestDocument } from "../models/RideRequest.model.js";
 import { UserModel } from "../models/User.model.js";
 import { createNotification, createManyNotifications } from "../services/notification.service.js";
+import { emitToUser } from "../services/socket.service.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { AppError } from "../utils/appError.js";
 import { generateETag, checkETag } from "../utils/etag.js";
@@ -106,6 +107,12 @@ export const requestRide = asyncHandler(async (req: AuthenticatedRequest, res: R
     title: "New ride request",
     body: `${requester.name} requested ${parsed.seatsRequested} seat(s) on your ride from ${ride.from} to ${ride.to}.`,
     link: `/ride/${ride._id}?requestId=${created._id}`,
+  });
+
+  emitToUser(String(ride.owner), "ride-request-updated", {
+    kind: "created",
+    requestId: String(created._id),
+    rideId: String(ride._id),
   });
 
   res.status(201).json({
@@ -260,6 +267,17 @@ export const updateRequestStatus = asyncHandler(async (req: AuthenticatedRequest
     link: `/ride/${request.ride}?requestId=${request._id}`,
   });
 
+  emitToUser(String(request.requester), "ride-request-updated", {
+    kind: status,
+    requestId: String(request._id),
+    rideId: String(request.ride),
+  });
+  emitToUser(String(request.rideOwner), "ride-request-updated", {
+    kind: status,
+    requestId: String(request._id),
+    rideId: String(request.ride),
+  });
+
   res.status(200).json({
     success: true,
     message: `Request ${status}`,
@@ -307,7 +325,19 @@ export const cancelMyBooking = asyncHandler(async (req: AuthenticatedRequest, re
       body: `A booking for ${request.seatsRequested} seat(s) on ${ride.from} to ${ride.to} was cancelled.`,
       link: `/ride/${request.ride}`,
     });
+
+    emitToUser(String(request.rideOwner), "ride-request-updated", {
+      kind: "cancelled",
+      requestId: String(request._id),
+      rideId: String(request.ride),
+    });
   }
+
+  emitToUser(String(request.requester), "ride-request-updated", {
+    kind: "cancelled",
+    requestId: String(request._id),
+    rideId: String(request.ride),
+  });
 
   await RideRequestModel.deleteOne({ _id: request._id });
 
