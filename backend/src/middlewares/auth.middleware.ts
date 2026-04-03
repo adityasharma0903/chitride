@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
+import type { Express } from "express";
 import { AppError } from "../utils/appError.js";
 import { verifyAccessToken } from "../utils/jwt.js";
 
@@ -6,9 +7,10 @@ export interface AuthenticatedRequest extends Request {
   user?: {
     id: string;
     email: string;
-   name?: string;
+    name?: string;
     role: "user" | "admin";
   };
+  file?: Express.Multer.File;
 }
 
 export const requireAuth = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {

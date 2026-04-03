@@ -10,7 +10,7 @@ import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
 
 const paramToString = (value: unknown) => (typeof value === "string" ? value : "");
 
-const toRidePayload = (ride: RideDocument, includeImage = false) => ({
+const toRidePayload = (ride: RideDocument) => ({
   ownerSnapshot: ride.ownerSnapshot || {
     name: "Driver",
     email: "",
@@ -20,7 +20,7 @@ const toRidePayload = (ride: RideDocument, includeImage = false) => ({
   },
 });
 
-const mapRidePayload = (ride: RideDocument, includeImage = false) => ({
+const mapRidePayload = (ride: RideDocument) => ({
   id: String(ride._id),
   ownerId: String(ride.owner),
   driverName: (toRidePayload(ride).ownerSnapshot.name || "Driver").trim(),
@@ -30,7 +30,7 @@ const mapRidePayload = (ride: RideDocument, includeImage = false) => ({
   driverYear: toRidePayload(ride).ownerSnapshot.year,
   carModel: ride.carModel,
   carNumberPlate: ride.carNumberPlate,
-  carImageUrl: includeImage ? ride.carImageUrl : "",
+  carImageUrl: ride.carImageUrl || "",
   from: ride.from,
   to: ride.to,
   date: ride.date,
@@ -65,11 +65,11 @@ export const getRides = asyncHandler(async (req: AuthenticatedRequest, res: Resp
   }
 
   const rides = await RideModel.find(query)
-    .select("ownerSnapshot from to date departureTime arrivalTime pricePerSeat seatsAvailable carModel carNumberPlate createdAt")
+    .select("ownerSnapshot from to date departureTime arrivalTime pricePerSeat seatsAvailable carModel carNumberPlate carImageUrl createdAt")
     .sort({ createdAt: -1 })
     .lean();
 
-  const rideData = rides.map((ride) => mapRidePayload(ride as RideDocument, false));
+  const rideData = rides.map((ride) => mapRidePayload(ride as RideDocument));
   const eTag = generateETag(rideData);
   const { isModified } = checkETag(eTag, req.headers["if-none-match"] as string);
 
@@ -105,13 +105,13 @@ export const getMyRides = asyncHandler(async (req: AuthenticatedRequest, res: Re
   }
 
   const rides = await RideModel.find({ owner: req.user.id })
-    .select("ownerSnapshot from to date departureTime arrivalTime pricePerSeat seatsAvailable carModel carNumberPlate createdAt")
+    .select("ownerSnapshot from to date departureTime arrivalTime pricePerSeat seatsAvailable carModel carNumberPlate carImageUrl createdAt")
     .sort({ createdAt: -1 })
     .lean();
 
   res.status(200).json({
     success: true,
-    data: rides.map((ride) => mapRidePayload(ride as RideDocument, false)),
+    data: rides.map((ride) => mapRidePayload(ride as RideDocument)),
   });
 });
 
@@ -154,6 +154,6 @@ export const createRide = asyncHandler(async (req: AuthenticatedRequest, res: Re
   res.status(201).json({
     success: true,
     message: "Ride posted successfully",
-    data: mapRidePayload(ride.toObject() as RideDocument, false),
+    data: mapRidePayload(ride.toObject() as RideDocument),
   });
 });

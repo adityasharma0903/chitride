@@ -12,6 +12,7 @@ import {
   reverseGeocode,
   type PlaceSuggestion,
 } from "@/lib/location";
+import { uploadImageToCloudinary } from "@/lib/cloudinary";
 
 const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -33,6 +34,7 @@ const PostRide = () => {
   const [carNumberPlate, setCarNumberPlate] = useState("");
   const [carImageUrl, setCarImageUrl] = useState("");
   const [carImagePreview, setCarImagePreview] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [repeatDays, setRepeatDays] = useState<string[]>([]);
   const [paymentMethod, setPaymentMethod] = useState("Cash");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -123,7 +125,7 @@ const PostRide = () => {
     );
   };
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -132,19 +134,31 @@ const PostRide = () => {
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image size must be less than 5MB.");
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image size must be less than 10MB.");
       return;
     }
 
+    // Show preview immediately
     const reader = new FileReader();
     reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      setCarImageUrl(base64);
-      setCarImagePreview(base64);
-      toast.success("Image selected successfully!");
+      setCarImagePreview(event.target?.result as string);
     };
     reader.readAsDataURL(file);
+
+    // Upload to Cloudinary
+    setIsUploadingImage(true);
+    try {
+      const imageUrl = await uploadImageToCloudinary(file, "car");
+      setCarImageUrl(imageUrl);
+      toast.success("Image uploaded successfully!");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to upload image";
+      toast.error(message);
+      setCarImagePreview(null);
+    } finally {
+      setIsUploadingImage(false);
+    }
   };
 
   const handleRemoveImage = () => {
@@ -406,13 +420,16 @@ const PostRide = () => {
               ) : (
                 <button
                   type="button"
+                  disabled={isUploadingImage}
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full h-32 bg-card border border-border border-dashed rounded-xl flex flex-col items-center justify-center gap-2 hover:bg-secondary transition-colors"
+                  className="w-full h-32 bg-card border border-border border-dashed rounded-xl flex flex-col items-center justify-center gap-2 hover:bg-secondary transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <Camera className="w-6 h-6 text-primary" />
                   <div className="text-center">
-                    <p className="text-xs font-semibold text-foreground">Take photo or choose from gallery</p>
-                    <p className="text-[10px] text-muted-foreground">Max 5MB</p>
+                    <p className="text-xs font-semibold text-foreground">
+                      {isUploadingImage ? "Uploading..." : "Take photo or choose from gallery"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">Max 10MB</p>
                   </div>
                 </button>
               )}

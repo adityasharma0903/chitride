@@ -21,6 +21,9 @@ const envSchema = z.object({
   CLIENT_ORIGIN: z.string().min(1),
   OTP_TTL_MINUTES: z.coerce.number().default(10),
   OTP_RESEND_COOLDOWN_SECONDS: z.coerce.number().default(60),
+  CLOUDINARY_CLOUD_NAME: z.string().min(1),
+  CLOUDINARY_API_KEY: z.string().min(1),
+  CLOUDINARY_API_SECRET: z.string().min(1),
 });
 
 export const env = envSchema.parse(process.env);

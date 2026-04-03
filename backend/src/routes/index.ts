@@ -4,6 +4,7 @@ import rideRoutes from "./ride.routes.js";
 import requestRoutes from "./request.routes.js";
 import chatRoutes from "./chat.routes.js";
 import geoRoutes from "./geo.routes.js";
+import uploadRoutes from "./upload.routes.js";
 
 const router = Router();
 
@@ -12,5 +13,6 @@ router.use("/v1/rides", rideRoutes);
 router.use("/v1/requests", requestRoutes);
 router.use("/v1/chat", chatRoutes);
 router.use("/v1/geo", geoRoutes);
+router.use("/v1/upload", uploadRoutes);
 
 export default router;

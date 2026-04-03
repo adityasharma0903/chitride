@@ -250,13 +250,27 @@ const RideDetail = () => {
           )}
         </div>
 
-        {ride.carImageUrl && (
-          <img
-            src={ride.carImageUrl}
-            alt="Car preview"
-            className="w-full h-32 object-cover rounded-xl border border-border mb-3"
-          />
-        )}
+        <div className="mb-3 rounded-xl border border-border bg-secondary/40 p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Car image</p>
+            {ride.carImageUrl ? (
+              <span className="text-[10px] font-medium text-primary">Uploaded</span>
+            ) : (
+              <span className="text-[10px] font-medium text-muted-foreground">No car image</span>
+            )}
+          </div>
+          {ride.carImageUrl ? (
+            <img
+              src={ride.carImageUrl}
+              alt={`${ride.carModel} car preview`}
+              className="w-full h-36 object-cover rounded-lg border border-border"
+            />
+          ) : (
+            <div className="flex h-36 items-center justify-center rounded-lg border border-dashed border-border bg-background/60">
+              <p className="text-xs text-muted-foreground">Car image will appear here when uploaded.</p>
+            </div>
+          )}
+        </div>
 
         <div className="flex items-start gap-3 mb-4">
           <div className="flex flex-col items-center mt-1">

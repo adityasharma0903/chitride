@@ -41,7 +41,7 @@ const accessCookieExpires = () => {
   return new Date(Date.now() + minutes * 60 * 1000);
 };
 
-const sendAuthResponse = (res: Response, user: { _id: unknown; name: string; email: string; phone: string; branch: string; year: string; role: "user" | "admin" }) => {
+const sendAuthResponse = (res: Response, user: { _id: unknown; name: string; email: string; phone: string; branch: string; year: string; role: "user" | "admin"; profileImageUrl?: string }) => {
   const tokens = authTokens(String(user._id), user.email, user.role);
   res.cookie("accessToken", tokens.accessToken, {
     ...accessCookieOptions,
@@ -61,6 +61,7 @@ const sendAuthResponse = (res: Response, user: { _id: unknown; name: string; ema
       branch: user.branch,
       year: user.year,
       role: user.role,
+      profileImageUrl: user.profileImageUrl || "",
     },
     accessToken: tokens.accessToken,
   };

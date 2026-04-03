@@ -6,6 +6,7 @@ export interface UserAccount {
   branch?: string;
   year?: string;
   role?: "user" | "admin";
+  profileImageUrl?: string;
 }
 
 export const AUTH_CHANGED_EVENT = "poolmate-auth-changed";
@@ -36,6 +37,7 @@ export const setCurrentUserFromAccount = (account: UserAccount, accessToken?: st
     branch: account.branch || "",
     year: account.year || "",
     role: account.role || "user",
+    profileImageUrl: account.profileImageUrl || "",
   };
 
   emitAuthChanged();

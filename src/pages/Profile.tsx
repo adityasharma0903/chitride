@@ -1,12 +1,17 @@
 import { useNavigate } from "react-router-dom";
-import { Car, LogOut, User, Mail, Phone, Pencil, BookOpenCheck, ChevronRight } from "lucide-react";
+import { Car, LogOut, User, Mail, Phone, Pencil, BookOpenCheck, ChevronRight, Camera } from "lucide-react";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
 import { useRideContext } from "@/context/RideContext";
 import { logoutFromServer } from "@/lib/auth";
+import { uploadImageToCloudinary } from "@/lib/cloudinary";
 
 const Profile = () => {
   const navigate = useNavigate();
   const { currentUser, rides, requests } = useRideContext();
+  const [isUploadingProfileImage, setIsUploadingProfileImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const currentUserId = (currentUser as { id?: string }).id;
 
   const myPostedRides = rides.filter(
@@ -16,6 +21,34 @@ const Profile = () => {
     (r) => (currentUserId && r.requesterId === currentUserId) || r.requesterEmail === currentUser.email
   );
   const myBookedRides = myRequests.filter((r) => r.status !== "rejected");
+
+  const handleProfileImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image size must be less than 5MB.");
+      return;
+    }
+
+    setIsUploadingProfileImage(true);
+    try {
+      await uploadImageToCloudinary(file, "profile");
+      toast.success("Profile picture updated!");
+      // Refresh the page to show updated image
+      window.location.reload();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to upload image";
+      toast.error(message);
+    } finally {
+      setIsUploadingProfileImage(false);
+    }
+  };
 
   const handleLogout = async () => {
     await logoutFromServer();
@@ -48,9 +81,34 @@ const Profile = () => {
 
       <section className="rounded-3xl border border-border/70 bg-card/75 p-4 md:col-span-4 md:h-fit md:sticky md:top-24 md:p-5 md:backdrop-blur-xl">
         <div className="flex flex-col items-center mb-6">
-          <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full border border-primary/20 bg-primary/10 shadow-[0_10px_30px_rgba(34,197,94,0.22)]">
-            <User className="w-10 h-10 text-primary" />
-          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleProfileImageChange}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploadingProfileImage}
+            className="mb-3 relative group"
+          >
+            <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full border border-primary/20 bg-primary/10 shadow-[0_10px_30px_rgba(34,197,94,0.22)] overflow-hidden">
+              {(currentUser as any)?.profileImageUrl ? (
+                <img
+                  src={(currentUser as any).profileImageUrl}
+                  alt={currentUser.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <User className="w-10 h-10 text-primary" />
+              )}
+            </div>
+            <div className="absolute bottom-0 right-0 bg-primary text-primary-foreground p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+              <Camera className="w-3 h-3" />
+            </div>
+          </button>
           <h2 className="text-lg font-bold text-foreground">{currentUser.name || "Student"}</h2>
           <p className="text-sm text-muted-foreground text-center break-all">{currentUser.email}</p>
         </div>
