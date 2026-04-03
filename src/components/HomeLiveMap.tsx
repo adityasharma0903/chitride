@@ -1,11 +1,30 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as L from "leaflet";
+import { useNavigate } from "react-router-dom";
+import type { Ride } from "./RideCard";
+import RideCard from "./RideCard";
 
 interface HomeLiveMapProps {
   currentLocation: [number, number] | null;
   locationLabel: string;
   isLocating: boolean;
+  filteredRides?: Ride[];
+  rideCoordinates?: Map<string, [number, number]>;
 }
+
+type Coordinate = [number, number];
+
+const createNearbyCarIcon = (angle: number = 0) =>
+  L.divIcon({
+    html: `
+      <div style="display:flex;align-items:center;justify-content:center;cursor:pointer;">
+        <img src="/car.png" alt="car" style="width:32px;height:32px;transform:rotate(${angle}deg);filter:drop-shadow(0 1px 2px rgba(0,0,0,0.15));" />
+      </div>
+    `,
+    className: "home-nearby-car-icon",
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+  });
 
 const createCurrentLocationIcon = () =>
   L.divIcon({
@@ -21,25 +40,17 @@ const createCurrentLocationIcon = () =>
     iconAnchor: [14, 14],
   });
 
-const createNearbyPinIcon = () =>
-  L.divIcon({
-    html: `
-      <div style="position:relative;width:18px;height:18px;display:flex;align-items:center;justify-content:center;">
-        <div style="width:14px;height:14px;border-radius:9999px;border:2px solid #111827;background:#ffffff;box-shadow:0 1px 3px rgba(0,0,0,0.25);"></div>
-      </div>
-    `,
-    className: "home-nearby-pin-icon",
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
-  });
-
-const HomeLiveMap = ({ currentLocation, locationLabel, isLocating }: HomeLiveMapProps) => {
+const HomeLiveMap = ({ currentLocation, locationLabel, isLocating, filteredRides = [], rideCoordinates = new Map() }: HomeLiveMapProps) => {
+  const navigate = useNavigate();
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerGroupRef = useRef<L.LayerGroup | null>(null);
   const currentMarkerRef = useRef<L.Marker | null>(null);
+  const rideMarkersRef = useRef<Map<string, L.Marker>>(new Map());
   const hasCenteredRef = useRef(false);
+  const [hoveredRideId, setHoveredRideId] = useState<string | null>(null);
 
+  // Initialize map
   useEffect(() => {
     if (!mapElementRef.current) return;
 
@@ -52,10 +63,16 @@ const HomeLiveMap = ({ currentLocation, locationLabel, isLocating }: HomeLiveMap
         doubleClickZoom: true,
       }).setView([30.7333, 76.7794], 13);
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
         maxZoom: 19,
+        subdomains: "abcd",
+      }).addTo(mapRef.current);
+
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png", {
+        attribution: false,
+        maxZoom: 19,
+        subdomains: "abcd",
       }).addTo(mapRef.current);
 
       layerGroupRef.current = L.layerGroup().addTo(mapRef.current);
@@ -72,6 +89,7 @@ const HomeLiveMap = ({ currentLocation, locationLabel, isLocating }: HomeLiveMap
     };
   }, []);
 
+  // Update current location marker
   useEffect(() => {
     if (!mapRef.current || !layerGroupRef.current || !currentLocation) return;
 
@@ -89,25 +107,42 @@ const HomeLiveMap = ({ currentLocation, locationLabel, isLocating }: HomeLiveMap
       mapRef.current.setView(currentLocation as L.LatLngExpression, 15, { animate: true });
       hasCenteredRef.current = true;
     }
-
-    layerGroupRef.current
-      .getLayers()
-      .filter((layer) => layer !== currentMarkerRef.current)
-      .forEach((layer) => layerGroupRef.current?.removeLayer(layer));
-
-    const nearbyOffsets: Array<[number, number]> = [
-      [0.0018, 0.0012],
-      [-0.0014, 0.0018],
-      [0.0012, -0.0016],
-      [-0.0018, -0.0012],
-      [0.0022, 0.0002],
-    ];
-
-    nearbyOffsets.forEach((offset) => {
-      const pinPos: [number, number] = [currentLocation[0] + offset[0], currentLocation[1] + offset[1]];
-      L.marker(pinPos as L.LatLngExpression, { icon: createNearbyPinIcon() }).addTo(layerGroupRef.current!);
-    });
   }, [currentLocation]);
+
+  // Update ride markers
+  useEffect(() => {
+    if (!mapRef.current || !layerGroupRef.current) return;
+
+    // Clear old ride markers
+    rideMarkersRef.current.forEach((marker) => {
+      layerGroupRef.current?.removeLayer(marker);
+    });
+    rideMarkersRef.current.clear();
+
+    // Add new ride markers for filtered rides
+    filteredRides.forEach((ride) => {
+      const rideCoords = rideCoordinates.get(ride.id);
+      if (!rideCoords) return;
+
+      const marker = L.marker(rideCoords as L.LatLngExpression, {
+        icon: createNearbyCarIcon(0),
+      })
+        .addTo(layerGroupRef.current!)
+        .on("click", () => {
+          navigate(`/ride/${ride.id}`);
+        })
+        .on("mouseover", () => {
+          setHoveredRideId(ride.id);
+          marker.setIcon(createNearbyCarIcon(45));
+        })
+        .on("mouseout", () => {
+          setHoveredRideId(null);
+          marker.setIcon(createNearbyCarIcon(0));
+        });
+
+      rideMarkersRef.current.set(ride.id, marker);
+    });
+  }, [filteredRides, rideCoordinates, navigate]);
 
   return (
     <div className="absolute inset-0 h-full w-full bg-[#eef1f4]">
@@ -137,6 +172,15 @@ const HomeLiveMap = ({ currentLocation, locationLabel, isLocating }: HomeLiveMap
           </svg>
         </button>
       </div>
+
+      {/* Hover Card */}
+      {hoveredRideId && filteredRides.find((r) => r.id === hoveredRideId) && (
+        <div className="pointer-events-none absolute left-3 bottom-3 z-[500] md:left-6 md:bottom-6 max-w-sm">
+          <div className="pointer-events-auto">
+            <RideCard ride={filteredRides.find((r) => r.id === hoveredRideId)!} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -32,7 +32,7 @@ const Chat = ({ rideId, requestId, driverName, riderName, driverEmail, riderEmai
       Notification.requestPermission();
     }
   }, []);
-
+  
   useEffect(() => {
     const loadChatHistory = async () => {
       try {

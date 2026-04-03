@@ -244,7 +244,13 @@ const Home = () => {
           {/* Live map view */}
           <section className="w-full md:flex md:min-h-0 md:w-[var(--desktop-split)] md:flex-col md:gap-4">
             <div className="relative h-64 overflow-hidden bg-secondary md:h-[52vh] md:min-h-[380px] md:rounded-[28px] md:border md:border-border/70 md:shadow-[0_30px_80px_rgba(15,23,42,0.14)]">
-              <HomeLiveMap currentLocation={currentLocation} locationLabel={locationLabel} isLocating={isLocating} />
+              <HomeLiveMap 
+                currentLocation={currentLocation} 
+                locationLabel={locationLabel} 
+                isLocating={isLocating}
+                filteredRides={filteredRides}
+                rideCoordinates={rideCoordinatesRef.current}
+              />
 
               <div className="absolute bottom-4 left-4 right-16 z-[4] md:bottom-6 md:left-6 md:right-24">
                 <button

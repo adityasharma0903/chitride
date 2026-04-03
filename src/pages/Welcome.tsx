@@ -19,6 +19,12 @@ const Welcome = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/home", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
   if (isAuthenticated) {
     return null;
   }

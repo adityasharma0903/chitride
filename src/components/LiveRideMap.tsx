@@ -42,14 +42,14 @@ const createStopIcon = (color: string) =>
 const createCarIcon = (angle: number) =>
   L.divIcon({
     html: `
-      <div style="position:relative;width:30px;height:30px;display:flex;align-items:center;justify-content:center;">
-        <div style="position:absolute;inset:0;border-radius:9999px;background:#16a34a;opacity:0.2;animation:live-map-pulse 1.6s infinite;"></div>
-        <div style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;transform:rotate(${angle}deg);font-size:20px;line-height:1;position:relative;z-index:1;">🚗</div>
+      <div style="display:flex;align-items:center;justify-content:center;">
+        <div style="position:absolute;inset:-8px;border-radius:9999px;background:#16a34a;opacity:0.12;"></div>
+        <img src="/car.png" alt="car" style="width:40px;height:40px;transform:rotate(${angle}deg);filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2));position:relative;z-index:1;" />
       </div>
     `,
     className: "live-car-icon",
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
   });
 
 const getCoordinates = async (query: string): Promise<Coordinate> => {
@@ -181,10 +181,16 @@ const LiveRideMap = ({ from, to, rideId, requestId, isDriver = false }: LiveRide
             doubleClickZoom: true,
           });
 
-          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-            attribution:
-              '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
             maxZoom: 19,
+            subdomains: "abcd",
+          }).addTo(mapRef.current);
+
+          L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png", {
+            attribution: false,
+            maxZoom: 19,
+            subdomains: "abcd",
           }).addTo(mapRef.current);
         }
 
@@ -200,12 +206,11 @@ const LiveRideMap = ({ from, to, rideId, requestId, isDriver = false }: LiveRide
         }
 
         const polyline = L.polyline(routePoints as L.LatLngExpression[], {
-          color: "#ef5b7f",
-          weight: 4,
-          opacity: 0.95,
+          color: "#111827",
+          weight: 5,
+          opacity: 0.9,
           lineCap: "round",
           lineJoin: "round",
-          dashArray: "8 8",
         }).addTo(layerGroupRef.current);
 
         const pickupMarker = L.marker(routePoints[0] as L.LatLngExpression, { icon: createStopIcon("#ef5b7f") })
