@@ -36,13 +36,13 @@ const Welcome = () => {
         <div className="flex items-center gap-1 mt-4">
           <img
             src="/chitpoo_logo.png"
-            alt="Chit Pool Logo"
+            alt="FahRide Logo"
             width={80}
             height={80}
             className="w-30 h-30"
           />
           <span className="text-2xl font-bold text-foreground leading-tight">
-            Chit <span className="text-primary">Pool</span>
+            Fah <span className="text-primary">Ride</span>
           </span>
         </div>
 
@@ -59,7 +59,7 @@ const Welcome = () => {
         <div className="text-center mb-8 animate-slide-up">
           <h1 className="text-2xl font-bold text-foreground leading-tight mb-3">
             Share rides easily<br />
-            with <span className="text-primary">Chit Pool</span>
+            with <span className="text-primary">FahRide</span>
           </h1>
           <p className="text-muted-foreground text-sm leading-relaxed max-w-xs mx-auto">
             Share your rides daily while commuting to save money and reduce pollution. Exclusively for Chitkara University students.
@@ -82,8 +82,8 @@ const Welcome = () => {
         <div className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
           <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <img src="/chitpoo_logo.png" alt="Chit Pool" width={40} height={40} className="w-10 h-10" />
-              <span className="text-xl font-bold text-foreground">Chit <span className="text-primary">Pool</span></span>
+              <img src="/chitpoo_logo.png" alt="FahRide" width={40} height={40} className="w-10 h-10" />
+              <span className="text-xl font-bold text-foreground">Fah <span className="text-primary">Ride</span></span>
             </div>
             <div className="flex items-center gap-4">
               <button
@@ -147,7 +147,7 @@ const Welcome = () => {
           <div className="bg-card/40 border-t border-border/50 py-20">
             <div className="max-w-7xl mx-auto px-6">
               <div className="text-center mb-16">
-                <h2 className="text-3xl font-bold text-foreground mb-3">Why Choose Chit Pool?</h2>
+                <h2 className="text-3xl font-bold text-foreground mb-3">Why Choose FahRide?</h2>
                 <p className="text-muted-foreground text-lg">Everything you need for convenient and affordable commuting</p>
               </div>
 
@@ -240,7 +240,7 @@ const Welcome = () => {
                     <Users className="w-8 h-8 text-primary mb-3" />
                     <h4 className="font-bold text-foreground mb-2">Active Users</h4>
                     <p className="text-2xl font-bold text-primary">2,500+</p>
-                    <p className="text-xs text-muted-foreground">Students using Chit Pool</p>
+                    <p className="text-xs text-muted-foreground">Students using FahRide</p>
                   </div>
                 </div>
               </div>

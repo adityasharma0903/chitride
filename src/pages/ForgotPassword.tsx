@@ -130,13 +130,13 @@ const ForgotPassword = () => {
       <div className="flex items-center gap-1 mb-12 md:mb-8">
         <img
           src="/chitpoo_logo.png"
-          alt="Chit Pool Logo"
+          alt="FahRide Logo"
           width={80}
           height={80}
           className="w-30 h-30"
         />
         <span className="text-xl font-bold text-foreground">
-          Chit <span className="text-primary">Pool</span>
+          Fah <span className="text-primary">Ride</span>
         </span>
       </div>
 
