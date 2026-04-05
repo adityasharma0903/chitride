@@ -28,40 +28,61 @@ const CookieConsent = () => {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border shadow-lg p-4 z-50">
-      <div className="max-w-6xl mx-auto flex items-start gap-4">
-        <Cookie className="w-5 h-5 text-primary flex-shrink-0 mt-1" />
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/50 z-40"
+        onClick={() => setIsVisible(false)}
+      />
 
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-foreground mb-1">We use cookies</h3>
-          <p className="text-sm text-muted-foreground">
-            We use essential cookies for authentication and functional cookies to enhance your experience. Your tokens (access & refresh) are stored in secure, httpOnly cookies. No tracking or analytics cookies are used.
-          </p>
-        </div>
-
-        <div className="flex gap-2 flex-shrink-0">
+      {/* Modal */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="bg-card border border-border rounded-xl shadow-2xl max-w-md w-full">
+          {/* Close button */}
           <button
-            onClick={handleReject}
-            className="px-4 py-2 rounded-lg text-sm font-medium border border-border hover:bg-muted transition-colors text-foreground whitespace-nowrap"
+            onClick={() => setIsVisible(false)}
+            className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors"
           >
-            Reject
+            <X className="w-5 h-5" />
           </button>
-          <button
-            onClick={handleAccept}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors whitespace-nowrap"
-          >
-            Accept
-          </button>
-        </div>
 
-        <button
-          onClick={() => setIsVisible(false)}
-          className="text-muted-foreground hover:text-foreground flex-shrink-0 mt-1"
-        >
-          <X className="w-5 h-5" />
-        </button>
+          {/* Content */}
+          <div className="p-6 sm:p-8">
+            {/* Icon and header */}
+            <div className="flex items-center gap-3 mb-4">
+              <Cookie className="w-6 h-6 text-primary flex-shrink-0" />
+              <h3 className="font-semibold text-lg text-foreground">
+                We use cookies
+              </h3>
+            </div>
+
+            {/* Description */}
+            <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+              We use essential cookies for authentication and functional cookies
+              to enhance your experience. Your tokens (access & refresh) are
+              stored in secure, httpOnly cookies. No tracking or analytics
+              cookies are used.
+            </p>
+
+            {/* Action buttons */}
+            <div className="flex flex-col-reverse sm:flex-row gap-3 sm:gap-2">
+              <button
+                onClick={handleReject}
+                className="w-full px-4 py-2.5 rounded-lg text-sm font-medium border border-border hover:bg-muted transition-colors text-foreground"
+              >
+                Reject
+              </button>
+              <button
+                onClick={handleAccept}
+                className="w-full px-4 py-2.5 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                Accept
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
