@@ -5,44 +5,44 @@ const TermsAndConditions = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-b from-background via-background to-primary/5">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm">
+      <div className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
         <div className="flex items-center justify-between px-4 py-4 max-w-4xl mx-auto">
           <button
             onClick={() => navigate(-1)}
-            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-secondary rounded-lg transition-colors"
           >
-            <ArrowLeft className="w-6 h-6 text-slate-700" />
+            <ArrowLeft className="w-6 h-6 text-foreground" />
           </button>
-          <h1 className="text-xl font-bold text-slate-900">Terms & Conditions</h1>
+          <h1 className="text-xl font-bold text-foreground">Terms & Conditions</h1>
           <div className="w-10" />
         </div>
       </div>
 
       {/* Content */}
-      <div className="max-w-4xl mx-auto px-4 py-8 pb-20">
-        <div className="bg-white rounded-lg shadow-md p-6 md:p-8 space-y-6">
+      <div className="max-w-4xl mx-auto px-4 pt-24 pb-20">
+        <div className="bg-card/60 rounded-2xl backdrop-blur-sm border border-border/50 p-6 md:p-8 space-y-6">
           {/* Last Updated */}
-          <div className="text-sm text-slate-500 border-l-4 border-blue-500 pl-4">
+          <div className="text-sm text-muted-foreground border-l-4 border-primary pl-4">
             Last updated: April 5, 2026
           </div>
 
           {/* Introduction */}
           <section className="space-y-3">
-            <h2 className="text-2xl font-bold text-slate-900">Welcome to FAH Ride(Find-and-Hop)</h2>
-            <p className="text-slate-700 leading-relaxed">
+            <h2 className="text-2xl font-bold text-foreground">Welcome to FAH Ride(Find-and-Hop)</h2>
+            <p className="text-muted-foreground leading-relaxed">
               FAH Ride is an exclusive carpooling platform designed for Chitkara University students to safely share rides, reduce commuting costs, and build community. By accessing or using FAH Ride, you agree to be bound by these Terms. If you do not agree to these Terms, you may not use our Service.
             </p>
           </section>
 
           {/* Section 1 */}
           <section className="space-y-3">
-            <h3 className="text-lg font-semibold text-slate-900">1. Eligibility and Account Access</h3>
-            <p className="text-slate-700 leading-relaxed">
+            <h3 className="text-lg font-semibold text-foreground">1. Eligibility and Account Access</h3>
+            <p className="text-muted-foreground leading-relaxed">
               FAH Ride is exclusively available to active Chitkara University students. To access the platform, you must:
             </p>
-            <ul className="list-disc list-inside space-y-2 text-slate-700 ml-2">
+            <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-2">
               <li>Be enrolled as a current student at Chitkara University</li>
               <li>Register using your official Chitkara University email address (@chitkara.edu.in)</li>
               <li>Provide accurate personal information including your name, phone, branch, and academic year</li>
@@ -54,11 +54,11 @@ const TermsAndConditions = () => {
 
           {/* Section 2 */}
           <section className="space-y-3">
-            <h3 className="text-lg font-semibold text-slate-900">2. Ride Posting and Booking</h3>
-            <p className="text-slate-700 leading-relaxed">
+            <h3 className="text-lg font-semibold text-foreground">2. Ride Posting and Booking</h3>
+            <p className="text-muted-foreground leading-relaxed">
               When posting a ride as a driver or requesting seats as a passenger, you agree to:
             </p>
-            <ul className="list-disc list-inside space-y-2 text-slate-700 ml-2">
+            <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-2">
               <li><strong>Drivers:</strong> Provide accurate departure location, destination, date, time, seat availability, vehicle details (model, color, license plate), and price per seat</li>
               <li><strong>Drivers:</strong> Ensure your vehicle is roadworthy, properly insured, and complies with all traffic regulations</li>
               <li><strong>Drivers:</strong> Update ride status and communicate promptly with passengers through the app</li>
@@ -70,11 +70,11 @@ const TermsAndConditions = () => {
 
           {/* Section 3 */}
           <section className="space-y-3">
-            <h3 className="text-lg font-semibold text-slate-900">3. Safety and Conduct Standards</h3>
-            <p className="text-slate-700 leading-relaxed">
+            <h3 className="text-lg font-semibold text-foreground">3. Safety and Conduct Standards</h3>
+            <p className="text-muted-foreground leading-relaxed">
               To maintain a safe and respectful community, all users agree to:
             </p>
-            <ul className="list-disc list-inside space-y-2 text-slate-700 ml-2">
+            <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-2">
               <li>Drive defensively and follow all traffic laws, speed limits, and safety regulations</li>
               <li>Treat all other users with respect, professionalism, and courtesy</li>
               <li>Not engage in harassment, discrimination, or any form of abusive behavior</li>
@@ -87,11 +87,11 @@ const TermsAndConditions = () => {
 
           {/* Section 4 */}
           <section className="space-y-3">
-            <h3 className="text-lg font-semibold text-slate-900">4. Ratings, Reviews, and Feedback</h3>
-            <p className="text-slate-700 leading-relaxed">
+            <h3 className="text-lg font-semibold text-foreground">4. Ratings, Reviews, and Feedback</h3>
+            <p className="text-muted-foreground leading-relaxed">
               FAH Ride maintains a community trust system through user ratings and feedback:
             </p>
-            <ul className="list-disc list-inside space-y-2 text-slate-700 ml-2">
+            <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-2">
               <li>Leave honest 5-star ratings and written feedback after each completed ride</li>
               <li>Rate based on driver behavior, vehicle condition, punctuality, and passenger courtesy</li>
               <li>Users with consistently low ratings may face account suspension or termination</li>
@@ -103,11 +103,11 @@ const TermsAndConditions = () => {
 
           {/* Section 5 */}
           <section className="space-y-3">
-            <h3 className="text-lg font-semibold text-slate-900">5. Rides and Routes</h3>
-            <p className="text-slate-700 leading-relaxed">
+            <h3 className="text-lg font-semibold text-foreground">5. Rides and Routes</h3>
+            <p className="text-muted-foreground leading-relaxed">
               FAH Ride facilitates connections between drivers and passengers. Users understand that:
             </p>
-            <ul className="list-disc list-inside space-y-2 text-slate-700 ml-2">
+            <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-2">
               <li>FAH Ride does not operate rides directly - all rides are user-organized</li>
               <li>Drivers are solely responsible for vehicle maintenance, insurance, and regulatory compliance</li>
               <li>Passengers are advised to verify driver identity and ratings before confirming rides</li>
@@ -119,11 +119,11 @@ const TermsAndConditions = () => {
 
           {/* Section 6 */}
           <section className="space-y-3">
-            <h3 className="text-lg font-semibold text-slate-900">6. Communication and Contact Information</h3>
-            <p className="text-slate-700 leading-relaxed">
+            <h3 className="text-lg font-semibold text-foreground">6. Communication and Contact Information</h3>
+            <p className="text-muted-foreground leading-relaxed">
               The in-app chat feature is designed for ride coordination only. Users agree to:
             </p>
-            <ul className="list-disc list-inside space-y-2 text-slate-700 ml-2">
+            <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-2">
               <li>Use the chat feature only for ride-related communication</li>
               <li>Not solicit personal information, social media accounts, or phone numbers before rides</li>
               <li>Report inappropriate or harassing messages to our support team</li>
@@ -134,11 +134,11 @@ const TermsAndConditions = () => {
 
           {/* Section 7 */}
           <section className="space-y-3">
-            <h3 className="text-lg font-semibold text-slate-900">7. Prohibited Activities</h3>
-            <p className="text-slate-700 leading-relaxed">
+            <h3 className="text-lg font-semibold text-foreground">7. Prohibited Activities</h3>
+            <p className="text-muted-foreground leading-relaxed">
               The following activities are strictly prohibited:
             </p>
-            <ul className="list-disc list-inside space-y-2 text-slate-700 ml-2">
+            <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-2">
               <li>Creating fake accounts or impersonating other users</li>
               <li>Posting rides or making requests for non-carpooling purposes</li>
               <li>Using FAH Ride for commercial taxi or transport services</li>
@@ -151,11 +151,11 @@ const TermsAndConditions = () => {
 
           {/* Section 8 */}
           <section className="space-y-3">
-            <h3 className="text-lg font-semibold text-slate-900">8. Account Suspension and Termination</h3>
-            <p className="text-slate-700 leading-relaxed">
+            <h3 className="text-lg font-semibold text-foreground">8. Account Suspension and Termination</h3>
+            <p className="text-muted-foreground leading-relaxed">
               FAH Ride may suspend or permanently terminate your account if:
             </p>
-            <ul className="list-disc list-inside space-y-2 text-slate-700 ml-2">
+            <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-2">
               <li>You engage in unsafe, harassing, or discriminatory behavior</li>
               <li>You violate these Terms or post false information</li>
               <li>Your rating drops below 3.0 stars consistently</li>
@@ -163,52 +163,52 @@ const TermsAndConditions = () => {
               <li>You receive multiple safety/abuse reports confirmed by our team</li>
               <li>You engage in illegal activities or violate local transportation laws</li>
             </ul>
-            <p className="text-slate-700 leading-relaxed mt-3">
+            <p className="text-muted-foreground leading-relaxed mt-3">
               Upon termination, your access to all rides, messages, and account data will be permanently removed.
             </p>
           </section>
 
           {/* Section 9 */}
           <section className="space-y-3">
-            <h3 className="text-lg font-semibold text-slate-900">9. Limitation of Liability</h3>
-            <p className="text-slate-700 leading-relaxed">
+            <h3 className="text-lg font-semibold text-foreground">9. Limitation of Liability</h3>
+            <p className="text-muted-foreground leading-relaxed">
               TO THE FULLEST EXTENT PERMITTED BY LAW, FAH RIDE IS PROVIDED "AS IS" WITHOUT WARRANTIES. FAH RIDE SHALL NOT BE LIABLE FOR ACCIDENTS, INJURIES, PROPERTY DAMAGE, OR LOSSES DURING RIDES. USERS ASSUME ALL RISKS ASSOCIATED WITH CARPOOLING. FAH RIDE IS NOT RESPONSIBLE FOR SERVICE INTERRUPTIONS, DELAYED NOTIFICATIONS, OR TECHNICAL ERRORS THAT PREVENT RIDE COORDINATION.
             </p>
           </section>
 
           {/* Section 10 */}
           <section className="space-y-3">
-            <h3 className="text-lg font-semibold text-slate-900">10. Dispute Resolution</h3>
-            <p className="text-slate-700 leading-relaxed">
+            <h3 className="text-lg font-semibold text-foreground">10. Dispute Resolution</h3>
+            <p className="text-muted-foreground leading-relaxed">
               For disputes between users (driver-passenger disagreements, payment issues, cancellations), FAH Ride support will:
             </p>
-            <ul className="list-disc list-inside space-y-2 text-slate-700 ml-2">
+            <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-2">
               <li>Review ride details, chat history, and both user accounts</li>
               <li>Make fair, impartial decisions based on available evidence</li>
               <li>Attempt to resolve within 48 hours for active disputes</li>
               <li>Assign financial compensation or account remedies if warranted</li>
               <li>Maintain confidentiality of all dispute information</li>
             </ul>
-            <p className="text-slate-700 leading-relaxed mt-3">
+            <p className="text-muted-foreground leading-relaxed mt-3">
               Decisions made by FAH Ride support are final and binding on the platform.
             </p>
           </section>
 
           {/* Section 11 */}
           <section className="space-y-3">
-            <h3 className="text-lg font-semibold text-slate-900">11. Changes to Terms</h3>
-            <p className="text-slate-700 leading-relaxed">
+            <h3 className="text-lg font-semibold text-foreground">11. Changes to Terms</h3>
+            <p className="text-muted-foreground leading-relaxed">
               FAH Ride may update these Terms at any time to reflect platform improvements, legal changes, or policy updates. Significant changes will be communicated via email and in-app notifications. Your continued use of FAH Ride following any changes constitutes acceptance of the revised Terms.
             </p>
           </section>
 
           {/* Section 12 */}
           <section className="space-y-3">
-            <h3 className="text-lg font-semibold text-slate-900">12. Acknowledgment</h3>
-            <p className="text-slate-700 leading-relaxed">
+            <h3 className="text-lg font-semibold text-foreground">12. Acknowledgment</h3>
+            <p className="text-muted-foreground leading-relaxed">
               By registering and using FAH Ride, you acknowledge that:
             </p>
-            <ul className="list-disc list-inside space-y-2 text-slate-700 ml-2">
+            <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-2">
               <li>You have read, understood, and agree to these Terms and Conditions</li>
               <li>You accept all risks associated with carpooling and shared transportation</li>
               <li>You will comply with all local, state, and national transportation laws</li>
@@ -219,12 +219,12 @@ const TermsAndConditions = () => {
 
           {/* Section 13 */}
           <section className="space-y-3">
-            <h3 className="text-lg font-semibold text-slate-900">13. Contact and Support</h3>
-            <p className="text-slate-700 leading-relaxed">
+            <h3 className="text-lg font-semibold text-foreground">13. Contact and Support</h3>
+            <p className="text-muted-foreground leading-relaxed">
               For questions about these Terms, policy violations, or to report safety concerns, contact our support team:
             </p>
-            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-              <p className="text-slate-700">
+            <div className="bg-secondary/50 p-4 rounded-lg border border-border/50">
+              <p className="text-muted-foreground">
                 <span className="font-semibold">FAH Ride Support</span><br />
                 Email: <br />
                 Response Time: Within 6 hours for urgent safety matters
@@ -233,7 +233,7 @@ const TermsAndConditions = () => {
           </section>
 
           {/* Footer */}
-          <div className="pt-4 border-t border-slate-200 text-center text-sm text-slate-500">
+          <div className="pt-4 border-t border-border/50 text-center text-sm text-muted-foreground">
             <p>© 2026 FAH Ride. All rights reserved.</p>
           </div>
         </div>
