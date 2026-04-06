@@ -13,9 +13,9 @@ const transporter = nodemailer.createTransport({
 
 export const sendOtpEmail = async (to: string, otp: string, purpose: "signup" | "login" | "password-reset") => {
   const subjectMap = {
-    signup: "Verify your PoolMate account",
-    login: "Your PoolMate login OTP",
-    "password-reset": "Reset your PoolMate password",
+    signup: "Verify your FahRide account",
+    login: "Your FahRide login OTP",
+    "password-reset": "Reset your FahRide password",
   };
 
   const purposeText = {
@@ -28,7 +28,7 @@ export const sendOtpEmail = async (to: string, otp: string, purpose: "signup" | 
 
   const htmlContent = `
     <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
-      <h2>PoolMate OTP</h2>
+      <h2>FahRide OTP</h2>
       <p>Your one-time password for <strong>${purposeText[purpose]}</strong> is:</p>
       <div style="font-size: 28px; font-weight: 700; letter-spacing: 8px; margin: 20px 0;">${otp}</div>
       <p>This OTP expires in a few minutes. If you did not request this, ignore this email.</p>
