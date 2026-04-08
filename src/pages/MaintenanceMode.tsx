@@ -59,25 +59,17 @@ export default function MaintenanceMode() {
                 </div>
                 <p className="font-semibold text-white">Need help?</p>
               </div>
-              <p className="text-sm text-blue-100/70">
+              <p className="text-sm text-blue-100/70 mb-3">
                 For urgent assistance, reach out to us on WhatsApp or email.
               </p>
-            </div>
-          </div>
-
-          {/* Estimated time */}
-          <div className="space-y-4 py-6">
-            <div className="inline-block bg-white/5 backdrop-blur-md border border-emerald-500/30 rounded-full px-6 py-3">
-              <p className="text-emerald-200 font-medium text-sm">
-                ⏱️ Estimated time: A few moments
-              </p>
-            </div>
-
-            {/* Loading animation */}
-            <div className="flex justify-center gap-3 pt-2">
-              <div className="h-3 w-3 bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "0s" }} />
-              <div className="h-3 w-3 bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }} />
-              <div className="h-3 w-3 bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "0.4s" }} />
+              <a
+                href="https://chat.whatsapp.com/HzdNLw7gkhbCEpszycId8o"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-all duration-300"
+              >
+                Join Our Community 💬
+              </a>
             </div>
           </div>
 

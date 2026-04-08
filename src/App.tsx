@@ -108,6 +108,17 @@ const PublicOnlyRoute = ({
   return <>{children}</>;
 };
 
+const MaintenancePageGuard = ({
+  isMaintenanceMode,
+}: {
+  isMaintenanceMode: boolean;
+}) => {
+  if (!isMaintenanceMode) {
+    return <Navigate to="/" replace />;
+  }
+  return <MaintenanceMode />;
+};
+
 const MaintenanceRoute = ({
   isMaintenanceMode,
   children,
@@ -132,8 +143,8 @@ const AppRoutes = () => {
       <Route path="/v1/admin" element={<AdminLogin />} />
       <Route path="/admin/dashboard" element={<AdminDashboard />} />
 
-      {/* Maintenance Mode Route */}
-      <Route path="/maintenance" element={<MaintenanceMode />} />
+      {/* Maintenance Mode Route - Protected by maintenance status check */}
+      <Route path="/maintenance" element={<MaintenancePageGuard isMaintenanceMode={isMaintenanceMode} />} />
 
       {/* Public Routes */}
       <Route

@@ -52,7 +52,7 @@ export default function AdminLogin() {
               <label className="text-sm font-medium">Email</label>
               <Input
                 type="email"
-                placeholder="admin@chitkara.edu.in"
+                placeholder=""
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={isLoading}
