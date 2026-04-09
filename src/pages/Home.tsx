@@ -71,7 +71,8 @@ const Home = () => {
 
   const filteredRides = rides.filter((ride) => {
     const availability = getRideAvailabilityState(ride);
-    if (!availability.canRequest) {
+    const shouldShowRide = availability.canRequest || availability.kind === "full";
+    if (!shouldShowRide) {
       return false;
     }
 

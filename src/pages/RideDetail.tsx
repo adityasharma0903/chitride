@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock,
-  DollarSign,
   Pencil,
   Trash2,
   Loader2,
@@ -105,6 +104,15 @@ const RideDetail = () => {
   const resolvedDriverPhone = ride?.driverPhone || (isRideOwner ? sessionUser?.phone || "" : "");
   const isChatEnabled = isFeatureEnabled("VITE_CHAT_ENABLED", false);
 
+  const formatRupeePrice = (value: string) => {
+    const numeric = Number.parseFloat(value.replace(/[^\d.]/g, ""));
+    if (!Number.isFinite(numeric)) {
+      return value.startsWith("₹") ? value : `₹${value.replace(/^[^\d]+/, "")}`;
+    }
+
+    return `₹${Number.isInteger(numeric) ? numeric : numeric.toFixed(2)}`;
+  };
+
   useEffect(() => {
     if (id) {
       setRequest(getRequestForRide(id));
@@ -120,7 +128,7 @@ const RideDetail = () => {
       date: ride.date || "",
       departureTime: ride.departureTime,
       arrivalTime: ride.arrivalTime || "",
-      pricePerSeat: ride.pricePerSeat.replace(/^₹/, ""),
+      pricePerSeat: ride.pricePerSeat.replace(/^[₹$]/, ""),
       seats: String(ride.seats),
       carModel: ride.carModel,
       carNumberPlate: ride.carNumberPlate || "",
@@ -618,9 +626,8 @@ const RideDetail = () => {
 
         <div className="grid grid-cols-3 gap-3 pt-3 border-t border-border">
           <div className="flex items-center gap-1.5">
-            <DollarSign className="w-3.5 h-3.5 text-muted-foreground" />
             <div>
-              <p className="font-bold text-sm text-foreground">{ride.pricePerSeat}</p>
+              <p className="font-bold text-sm text-foreground">{formatRupeePrice(ride.pricePerSeat)}</p>
               <p className="text-[10px] text-muted-foreground">per seat</p>
             </div>
           </div>
