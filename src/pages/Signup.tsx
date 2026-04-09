@@ -8,6 +8,7 @@ import {
   type UserAccount,
 } from "@/lib/auth";
 import { apiRequest } from "@/lib/api";
+import { trackEvent } from "@/lib/analytics";
 import { toast } from "sonner";
 
 const branches = ["CSE", "Mech Engg", "ECE", "Civil", "MBA", "Pharmacy", "Biotech", "BCA", "BBA"];
@@ -127,6 +128,9 @@ const Signup = () => {
     )
       .then((response) => {
         setCurrentUserFromAccount(response.data.user, response.data.accessToken);
+        trackEvent("sign_up", {
+          method: "otp",
+        });
         navigate("/home");
       })
       .catch((apiError: unknown) => {

@@ -5,6 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
+import AnalyticsHealthBadge from "@/components/AnalyticsHealthBadge";
 import { RideProvider } from "@/context/RideContext";
 import { SocketProvider } from "@/context/SocketContext";
 import { MaintenanceProvider, useMaintenance } from "@/context/MaintenanceContext";
@@ -305,6 +306,7 @@ const App = () => (
       <BrowserRouter>
         <MaintenanceProvider>
           <AnalyticsTracker />
+          <AnalyticsHealthBadge />
           <SocketProvider>
             <RideProvider>
               <AppRoutes />

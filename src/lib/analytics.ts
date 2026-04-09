@@ -1,6 +1,8 @@
 const DEFAULT_GA_ID = "G-M1XJVRDMS4";
 const GA_ID = import.meta.env.VITE_GA_ID || DEFAULT_GA_ID;
 const SCRIPT_ID = "google-analytics-gtag";
+const ACCEPTED_CONSENT_VALUES = new Set(["accepted", "true", "1", "yes"]);
+const SESSION_FLAG_KEY = "ga_session_started";
 
 declare global {
   interface Window {
@@ -11,7 +13,14 @@ declare global {
 
 export const COOKIE_CONSENT_KEY = "cookieConsent";
 
-export const hasAnalyticsConsent = () => localStorage.getItem(COOKIE_CONSENT_KEY) === "accepted";
+export const hasAnalyticsConsent = () => {
+  const raw = localStorage.getItem(COOKIE_CONSENT_KEY);
+  if (!raw) {
+    return false;
+  }
+
+  return ACCEPTED_CONSENT_VALUES.has(raw.trim().toLowerCase());
+};
 
 export const loadGoogleAnalytics = () => {
   if (typeof window === "undefined" || !GA_ID) {
@@ -37,7 +46,10 @@ export const loadGoogleAnalytics = () => {
   }
 
   window.gtag("js", new Date());
-  window.gtag("config", GA_ID, { send_page_view: false });
+  window.gtag("config", GA_ID, {
+    send_page_view: false,
+    debug_mode: import.meta.env.DEV,
+  });
 
   return true;
 };
@@ -51,5 +63,40 @@ export const trackPageView = (path: string) => {
     page_path: path,
     page_location: window.location.href,
     page_title: document.title,
+  });
+};
+
+export const trackEvent = (name: string, params: Record<string, unknown> = {}) => {
+  if (!window.gtag || !GA_ID) {
+    return;
+  }
+
+  window.gtag("event", name, params);
+};
+
+export const trackSessionStart = () => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (sessionStorage.getItem(SESSION_FLAG_KEY) === "1") {
+    return;
+  }
+
+  sessionStorage.setItem(SESSION_FLAG_KEY, "1");
+  trackEvent("session_start", {
+    page_location: window.location.href,
+    page_title: document.title,
+  });
+};
+
+export const trackEngagementPulse = () => {
+  if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+    return;
+  }
+
+  trackEvent("user_engagement", {
+    engagement_time_msec: 1000,
+    page_location: typeof window !== "undefined" ? window.location.href : "",
   });
 };
