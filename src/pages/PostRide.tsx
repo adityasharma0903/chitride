@@ -3,7 +3,9 @@ import { ArrowLeft, MapPin, Calendar, Clock, Car, IndianRupee, Camera, X } from 
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
+import { apiRequest } from "@/lib/api";
 import { useRideContext } from "@/context/RideContext";
+import { useCoinReward } from "@/context/CoinRewardContext";
 import {
   fetchPlaceSuggestions,
   getBrowserCurrentLocation,
@@ -20,6 +22,7 @@ const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const PostRide = () => {
   const navigate = useNavigate();
   const { addRide } = useRideContext();
+  const { showCoinReward } = useCoinReward();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [fromSuggestions, setFromSuggestions] = useState<PlaceSuggestion[]>([]);
@@ -216,8 +219,24 @@ const PostRide = () => {
       car_model: carModel,
       has_repeat: repeatDays.length > 0,
     });
-    toast.success("Ride posted successfully!");
-    navigate("/home");
+    
+    try {
+      const walletRes = await apiRequest<{ data: { daily: { postRewardsUsed: number; postRewardsLimit: number } } }>("/wallet/overview");
+      if (walletRes.data.daily.postRewardsUsed >= walletRes.data.daily.postRewardsLimit) {
+        toast.success("Ride posted successfully");
+        navigate("/home");
+      } else {
+        showCoinReward({
+          coins: 20,
+          reason: "Coins will be credited to your wallet when a rider joins your ride",
+          pending: true,
+          onComplete: () => navigate("/home"),
+        });
+      }
+    } catch {
+      toast.success("Ride posted successfully");
+      navigate("/home");
+    }
   };
 
   return (

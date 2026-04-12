@@ -9,6 +9,7 @@ import AnalyticsHealthBadge from "@/components/AnalyticsHealthBadge";
 import { RideProvider } from "@/context/RideContext";
 import { SocketProvider } from "@/context/SocketContext";
 import { MaintenanceProvider, useMaintenance } from "@/context/MaintenanceContext";
+import { CoinRewardProvider } from "@/context/CoinRewardContext";
 import CookieConsent from "@/components/CookieConsent";
 import { AUTH_CHANGED_EVENT, getCurrentUser, hydrateCurrentUser } from "@/lib/auth";
 import { toast } from "sonner";
@@ -309,7 +310,9 @@ const App = () => (
           <AnalyticsHealthBadge />
           <SocketProvider>
             <RideProvider>
-              <AppRoutes />
+              <CoinRewardProvider>
+                <AppRoutes />
+              </CoinRewardProvider>
             </RideProvider>
           </SocketProvider>
           <CookieConsent />

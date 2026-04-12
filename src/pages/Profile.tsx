@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
 import WhatsAppCommunityButton from "@/components/WhatsAppCommunityButton";
 import { useRideContext } from "@/context/RideContext";
+import { useCoinReward } from "@/context/CoinRewardContext";
 import { logoutFromServer, setCurrentUserFromAccount, type UserAccount } from "@/lib/auth";
 import { ApiError, apiRequest } from "@/lib/api";
 import { trackEvent } from "@/lib/analytics";
@@ -76,6 +77,7 @@ const transactionKindLabel: Record<string, string> = {
 const Profile = () => {
   const navigate = useNavigate();
   const { currentUser, rides, requests } = useRideContext();
+  const { showCoinReward } = useCoinReward();
   const [isUploadingProfileImage, setIsUploadingProfileImage] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -87,7 +89,7 @@ const Profile = () => {
   const [isRedeeming, setIsRedeeming] = useState(false);
   const [redeemPoints, setRedeemPoints] = useState("500");
   const [upiId, setUpiId] = useState("");
-  const [earnedCelebration, setEarnedCelebration] = useState<number | null>(null);
+
   const [myFeedback, setMyFeedback] = useState<{
     received: ProfileFeedbackItem[];
     given: ProfileFeedbackItem[];
@@ -171,13 +173,10 @@ const Profile = () => {
         const previousBalance = previousWalletBalanceRef.current;
         if (previousBalance !== null && response.data.balance > previousBalance) {
           const earnedDelta = response.data.balance - previousBalance;
-          setEarnedCelebration(earnedDelta);
-          toast.success(`You earned ${earnedDelta} Fah Coins`, {
-            description: "Reward added to your wallet.",
-          });
-          window.setTimeout(() => {
-            setEarnedCelebration(null);
-          }, 2000);
+          // Derive reason from the latest transaction
+          const latestTxn = response.data.transactions[0];
+          const reasonLabel = latestTxn ? (transactionKindLabel[latestTxn.kind] || "Reward earned") : "Reward earned";
+          showCoinReward({ coins: earnedDelta, reason: reasonLabel });
         }
 
         previousWalletBalanceRef.current = response.data.balance;
@@ -396,28 +395,7 @@ setCurrentUserFromAccount({
 
   return (
     <div className="app-container desktop-premium-page bg-background min-h-screen pb-24 px-4 pt-6 md:pb-8 md:px-0 md:pt-32">
-      {earnedCelebration ? (
-        <div className="fah-coin-celebration-overlay">
-          {Array.from({ length: 20 }).map((_, index) => (
-            <div
-              key={`coin-${index}`}
-              className="fah-coin-celebration-coin"
-              style={{
-                left: `${3 + ((index * 5.1) % 94)}%`,
-                animationDelay: `${(index % 7) * 0.08}s`,
-              }}
-            >
-              F
-            </div>
-          ))}
-          <div className="absolute inset-x-0 top-24 z-10 mx-auto w-[92%] max-w-sm fah-coin-celebration-card">
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-lg">
-              <p className="text-sm font-semibold text-emerald-800">Reward Received</p>
-              <p className="text-xs text-emerald-700">You earned {earnedCelebration} Fah Coins.</p>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {/* Old celebration overlay removed — replaced by global CoinRewardPopup */}
 
       <div className="pointer-events-none absolute inset-0 hidden overflow-hidden md:block">
         <div className="absolute -left-24 top-0 h-72 w-72 rounded-full bg-emerald-200/30 blur-3xl" />

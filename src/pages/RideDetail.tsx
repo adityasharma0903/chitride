@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { createPortal } from "react-dom";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -21,8 +20,8 @@ import {
 import Chat from "@/components/Chat";
 import BottomNav from "@/components/BottomNav";
 import LiveRideMap from "@/components/LiveRideMap";
-import Coin3D from "@/components/Coin3D";
 import { useRideContext } from "@/context/RideContext";
+import { useCoinReward } from "@/context/CoinRewardContext";
 import { getCurrentUser } from "@/lib/auth";
 import { uploadImageToCloudinary } from "@/lib/cloudinary";
 import { apiRequest, ApiError } from "@/lib/api";
@@ -49,6 +48,7 @@ const RideDetail = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { rides, requests, currentUser, sendRequest, getRequestForRide, updateRide, deleteRide, cancelBooking, approveRequest, rejectRequest } = useRideContext();
+  const { showCoinReward } = useCoinReward();
 
   const [request, setRequest] = useState<ReturnType<typeof getRequestForRide>>(undefined);
   const [showSeatSelection, setShowSeatSelection] = useState(false);
@@ -59,7 +59,6 @@ const RideDetail = () => {
   const [isDeletingRide, setIsDeletingRide] = useState(false);
   const [isUploadingEditImage, setIsUploadingEditImage] = useState(false);
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
-  const [showFeedbackCelebration, setShowFeedbackCelebration] = useState(false);
   const [isCancellingRequest, setIsCancellingRequest] = useState(false);
   const [isLoadingDriverReviews, setIsLoadingDriverReviews] = useState(false);
   const [driverReviewsError, setDriverReviewsError] = useState("");
@@ -241,6 +240,18 @@ const RideDetail = () => {
       toast.success(
         `Requested ${seatsToRequest} ${seatsToRequest === 1 ? "seat" : "seats"} from ${ride.driverName}!`
       );
+      try {
+        const walletRes = await apiRequest<{ data: { daily: { joinRewardsUsed: number; joinRewardsLimit: number } } }>("/wallet/overview");
+        if (walletRes.data.daily.joinRewardsUsed < walletRes.data.daily.joinRewardsLimit) {
+          showCoinReward({
+            coins: 10,
+            reason: "Coins will be credited when the driver approves your request",
+            pending: true,
+          });
+        }
+      } catch {
+        // Ignore error and don't show misleading popup
+      }
     } else {
       toast.error(result.message);
     }
@@ -407,12 +418,9 @@ const RideDetail = () => {
         }),
       });
 
-      setShowFeedbackCelebration(true);
+      showCoinReward({ coins: rewardCoinCount, reason: "Feedback submitted — thank you!" });
       setFeedbackComment("");
       setFeedbackRating(5);
-      window.setTimeout(() => {
-        setShowFeedbackCelebration(false);
-      }, 3200);
     } catch (error) {
       const message = error instanceof ApiError ? error.message : "Failed to submit feedback";
       toast.error(message);
@@ -447,6 +455,14 @@ const RideDetail = () => {
         toast.error(result.message);
       } else {
         toast.success("Request approved!");
+        try {
+          const walletRes = await apiRequest<{ data: { daily: { postRewardsUsed: number; postRewardsLimit: number } } }>("/wallet/overview");
+          if (walletRes.data.daily.postRewardsUsed < walletRes.data.daily.postRewardsLimit) {
+            showCoinReward({ coins: 20, reason: "You earned Fah Coins for accepting a rider!" });
+          }
+        } catch {
+          // Ignore
+        }
       }
     } finally {
       setProcessingRequestId(null);
@@ -483,55 +499,7 @@ const RideDetail = () => {
 
   return (
     <div className="app-container desktop-premium-page bg-background min-h-screen pb-24 md:pb-10">
-      {showFeedbackCelebration && typeof document !== "undefined"
-        ? createPortal(
-          <div className="fah-coin-celebration-overlay fah-coin-celebration-overlay--large">
-            <div className="fah-coin-celebration-popper fah-coin-celebration-popper--left" />
-            <div className="fah-coin-celebration-popper fah-coin-celebration-popper--right" />
-
-            {Array.from({ length: 36 }).map((_, index) => {
-              const hue = [45, 141, 210, 340, 28, 160][index % 6];
-              const x = ((index * 7.7) % 100) - 50;
-              const y = 120 + (index % 8) * 18;
-              const rot = `${(index % 2 === 0 ? 1 : -1) * (240 + index * 9)}deg`;
-
-              return (
-                <span
-                  key={`ride-feedback-confetti-${index}`}
-                  className="fah-coin-celebration-confetti"
-                  style={{
-                    left: `${50 + x}%`,
-                    top: `${10 + (index % 5) * 6}%`,
-                    background: `hsl(${hue} 92% 62%)`,
-                    opacity: 0.92,
-                    borderRadius: index % 3 === 0 ? "999px" : "4px",
-                    width: index % 4 === 0 ? "8px" : "10px",
-                    height: index % 4 === 0 ? "26px" : "18px",
-                    ["--confetti-x" as never]: `${x * 1.9}px`,
-                    ["--confetti-y" as never]: `${y}px`,
-                    ["--confetti-rot" as never]: rot,
-                    ["--confetti-delay" as never]: `${(index % 9) * 0.09}s`,
-                    ["--confetti-color" as never]: `hsl(${hue} 92% 62%)`,
-                  }}
-                />
-              );
-            })}
-
-            <div className="fah-coin-celebration-stage">
-              <div className="flex flex-col items-center px-6 w-full">
-                <div style={{ width: "min(78vw, 360px)", height: "400px", position: "relative", zIndex: 50 }}>
-                  <Coin3D isAnimating={showFeedbackCelebration} />
-                </div>
-                <div className="fah-coin-celebration-title fah-coin-celebration-card">
-                  <strong>Fah Coins Earned</strong>
-                  <span>You earned {rewardCoinCount} Fah Coin for your feedback.</span>
-                </div>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )
-        : null}
+      {/* Old celebration overlay removed — replaced by global CoinRewardPopup */}
 
       <div className="px-4 pt-6 flex items-center gap-3 mb-4 md:px-0 md:pt-0 md:max-w-[86rem] md:mx-auto">
         <button type="button" onClick={() => navigate(-1)} className="text-foreground">
