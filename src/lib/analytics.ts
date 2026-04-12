@@ -13,6 +13,9 @@ declare global {
 
 export const COOKIE_CONSENT_KEY = "cookieConsent";
 
+let gtagLoaded = false;
+let gtagReady = false;
+
 export const hasAnalyticsConsent = () => {
   const raw = localStorage.getItem(COOKIE_CONSENT_KEY);
   if (!raw) {
@@ -27,13 +30,25 @@ export const loadGoogleAnalytics = () => {
     return false;
   }
 
-  if (window.gtag) {
+  if (gtagLoaded && window.gtag) {
     return true;
   }
 
   window.dataLayer = window.dataLayer || [];
   window.gtag = (...args: unknown[]) => {
     window.dataLayer?.push(args);
+    
+    if (args[0] === "gtag" && args[1] === "consent" && args[2] === "update") {
+      gtagReady = true;
+    }
+    
+    if (args[0] === "js" && args[1]) {
+      gtagLoaded = true;
+    }
+    
+    if (args[0] === "config" && args[1] === GA_ID) {
+      gtagReady = true;
+    }
   };
 
   const existingScript = document.getElementById(SCRIPT_ID);
@@ -43,12 +58,24 @@ export const loadGoogleAnalytics = () => {
     script.async = true;
     script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_ID}`;
     document.head.appendChild(script);
+
+    script.onload = () => {
+      gtagLoaded = true;
+      window.gtag("consent", "update", {
+        analytics_storage: "granted",
+      });
+    };
   }
 
   window.gtag("js", new Date());
   window.gtag("config", GA_ID, {
     send_page_view: false,
-    debug_mode: import.meta.env.DEV,
+    debug_mode: false,
+  });
+  
+  window.gtag("consent", "update", {
+    analytics_storage: "granted",
+    ad_storage: "granted",
   });
 
   return true;
@@ -71,7 +98,10 @@ export const trackEvent = (name: string, params: Record<string, unknown> = {}) =
     return;
   }
 
-  window.gtag("event", name, params);
+  window.gtag("event", name, {
+    ...params,
+    timestamp: Date.now(),
+  });
 };
 
 export const trackSessionStart = () => {

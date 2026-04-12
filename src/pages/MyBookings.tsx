@@ -1,12 +1,18 @@
+import { useEffect } from "react";
 import { ArrowLeft, BookOpenCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
 import { useRideContext } from "@/context/RideContext";
+import { trackPageView } from "@/lib/analytics";
 
 const MyBookings = () => {
   const navigate = useNavigate();
   const { rides, requests, currentUser, cancelBooking } = useRideContext();
+
+  useEffect(() => {
+    trackPageView("/my-bookings");
+  }, []);
 
   const myBookings = requests.filter(
     (request) => request.requesterEmail === currentUser.email && request.status !== "rejected"

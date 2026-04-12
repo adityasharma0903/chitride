@@ -12,6 +12,7 @@ import {
   reverseGeocode,
   type PlaceSuggestion,
 } from "@/lib/location";
+import { trackEvent } from "@/lib/analytics";
 import { uploadImageToCloudinary } from "@/lib/cloudinary";
 
 const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -194,10 +195,27 @@ const PostRide = () => {
     setIsSubmitting(false);
 
     if (!result.success) {
+      trackEvent("post_ride_error", {
+        from,
+        to,
+        date,
+        time,
+        error: result.message,
+      });
       toast.error(result.message);
       return;
     }
 
+    trackEvent("post_ride", {
+      from,
+      to,
+      date,
+      time,
+      seats,
+      price: Number(price),
+      car_model: carModel,
+      has_repeat: repeatDays.length > 0,
+    });
     toast.success("Ride posted successfully!");
     navigate("/home");
   };

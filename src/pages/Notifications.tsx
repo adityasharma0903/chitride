@@ -4,6 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import BottomNav from "@/components/BottomNav";
 import { useRideContext } from "@/context/RideContext";
+import { trackPageView } from "@/lib/analytics";
 import { toast } from "sonner";
 
 const Notifications = () => {
@@ -14,6 +15,7 @@ const Notifications = () => {
   const [isClearing, setIsClearing] = useState(false);
 
   useEffect(() => {
+    trackPageView("/notifications");
     void refreshData();
   }, [refreshData]);
 

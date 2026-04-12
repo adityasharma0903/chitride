@@ -8,6 +8,7 @@ import WhatsAppCommunityButton from "@/components/WhatsAppCommunityButton";
 import { useRideContext } from "@/context/RideContext";
 import { reverseGeocode, geocodeLocationName, haversineDistanceKm } from "@/lib/location";
 import { getRideAvailabilityState } from "@/lib/rideStatus";
+import { trackEvent } from "@/lib/analytics";
 import { toast } from "sonner";
 
 type Coordinate = [number, number];
@@ -451,10 +452,21 @@ const Home = () => {
                     const result = await sendRequest(selectedRideId, seatsToRequest);
                     setSelectedRideId(null);
                     if (result.success) {
+                      trackEvent("join_ride", {
+                        ride_id: selectedRideId,
+                        seats_requested: seatsToRequest,
+                        driver_name: ride?.driverName,
+                        from: ride?.from,
+                        to: ride?.to,
+                      });
                       toast.success(
                         `Requested ${seatsToRequest} ${seatsToRequest === 1 ? "seat" : "seats"} from ${ride?.driverName}!`
                       );
                     } else {
+                      trackEvent("join_ride_error", {
+                        ride_id: selectedRideId,
+                        error: result.message,
+                      });
                       toast.error(result.message);
                     }
                   }}

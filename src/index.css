@@ -72,7 +72,13 @@
   }
 
   .desktop-glass-card {
-    @apply md:rounded-3xl md:border md:border-white/70 md:bg-white/70 md:shadow-[0_24px_60px_rgba(15,23,42,0.12)] md:backdrop-blur-2xl;
+    @apply md:rounded-3xl md:border md:border-white/70 md:bg-white/70 md:backdrop-blur-2xl;
+  }
+
+  @screen md {
+    .desktop-glass-card {
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+    }
   }
 
   .desktop-soft-grid {
@@ -85,12 +91,315 @@
     transform: scale(0.7);
     opacity: 0.3;
   }
+
   70% {
     transform: scale(1.45);
     opacity: 0;
   }
+
   100% {
     transform: scale(1.45);
     opacity: 0;
   }
+}
+
+@keyframes fah-coin-fall {
+  0% {
+    transform: translateY(-120px) rotate(0deg) scale(0.8);
+    opacity: 0;
+  }
+
+  12% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(105vh) rotate(540deg) scale(1);
+    opacity: 0;
+  }
+}
+
+@keyframes fah-celebration-card {
+  0% {
+    transform: translateY(8px) scale(0.96);
+    opacity: 0;
+  }
+
+  18% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+
+  86% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(-6px) scale(0.98);
+    opacity: 0;
+  }
+}
+
+@keyframes fah-celebration-coin-spin {
+  0% {
+    transform: translateZ(0) rotateX(18deg) rotateY(-90deg) scale(0.65);
+    opacity: 0;
+  }
+
+  8% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateZ(0) rotateX(0deg) rotateY(270deg) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes fah-confetti-pop {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.6);
+    opacity: 0;
+  }
+
+  15% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate3d(var(--confetti-x), var(--confetti-y), 0) rotate(var(--confetti-rot)) scale(1);
+    opacity: 0;
+  }
+}
+
+.fah-coin-celebration-overlay--large {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  isolation: isolate;
+  pointer-events: none;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(16, 185, 129, 0.28), transparent 20%),
+    radial-gradient(circle at 20% 18%, rgba(245, 158, 11, 0.18), transparent 22%),
+    radial-gradient(circle at 80% 18%, rgba(59, 130, 246, 0.16), transparent 24%),
+    rgba(15, 23, 42, 0.32);
+  backdrop-filter: blur(5px);
+  perspective: 1400px;
+}
+
+.fah-coin-celebration-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 10020;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 1400px;
+  transform-style: preserve-3d;
+  transform: translateY(-2%);
+}
+
+.fah-coin-celebration-coin--big {
+  width: min(64vw, 380px);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  border: 2px solid rgba(140, 70, 10, 0.4);
+  background:
+    radial-gradient(circle at 28% 22%, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.1) 12%, transparent 16%),
+    radial-gradient(circle at center, #fffacd 0%, #ffd700 12%, #ffed4e 20%, #ffc107 40%, #ffb300 65%, #d4a500 100%);
+  box-shadow:
+    0 40px 80px rgba(100, 50, 0, 0.45),
+    0 20px 40px rgba(80, 40, 0, 0.3),
+    inset -2px -2px 8px rgba(0, 0, 0, 0.2),
+    inset 2px 2px 8px rgba(255, 255, 255, 0.3),
+    inset 0 -30px 60px rgba(100, 50, 0, 0.15);
+  display: grid;
+  place-items: center;
+  position: relative;
+  transform-style: preserve-3d;
+  animation: fah-celebration-coin-spin 3.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.fah-coin-celebration-coin--big::before {
+  content: "";
+  position: absolute;
+  inset: 6%;
+  border-radius: 999px;
+  border: 2px solid rgba(200, 100, 0, 0.25);
+  background:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.05) 40%, transparent 60%),
+    repeating-conic-gradient(from 0deg,
+      rgba(150, 75, 0, 0.12) 0deg 3deg,
+      rgba(255, 255, 255, 0.08) 3deg 7deg);
+  box-shadow:
+    inset 0 0 0 6px rgba(255, 255, 255, 0.12),
+    inset 0 0 0 16px rgba(150, 75, 0, 0.06),
+    inset 0 -12px 20px rgba(100, 50, 0, 0.18);
+  transform: translateZ(2px);
+}
+
+.fah-coin-celebration-coin--big::after {
+  content: "$";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(2.5rem, 20vw, 160px);
+  font-weight: 900;
+  color: white;
+  text-shadow:
+    0 4px 12px rgba(100, 50, 0, 0.4),
+    0 -2px 6px rgba(255, 255, 255, 0.5) inset,
+    2px 2px 4px rgba(100, 50, 0, 0.3);
+  filter: drop-shadow(0 6px 12px rgba(50, 25, 0, 0.5));
+  transform: translateZ(28px);
+  letter-spacing: -0.08em;
+}
+
+.fah-coin-celebration-coin--big .fah-coin-celebration-emblem {
+  position: absolute;
+  inset: 15%;
+  border-radius: 999px;
+  border: 2px solid rgba(180, 83, 9, 0.1);
+  box-shadow:
+    inset 0 0 0 10px rgba(255, 255, 255, 0.08),
+    0 0 0 2px rgba(255, 255, 255, 0.06);
+  transform: translateZ(24px);
+}
+
+.fah-coin-celebration-coin--big .fah-coin-celebration-rim {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, rgba(100, 50, 0, 0.8), rgba(255, 200, 100, 0.6), rgba(100, 50, 0, 0.8));
+  transform: translateZ(-48px) rotateX(90deg) scaleY(0.22);
+  filter: blur(0.5px);
+  box-shadow:
+    inset 0 2px 6px rgba(255, 255, 255, 0.3),
+    0 4px 12px rgba(50, 25, 0, 0.6);
+}
+
+.fah-coin-celebration-coin--big .fah-coin-celebration-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  transform: translateZ(4px);
+  background:
+    radial-gradient(circle at 32% 25%, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.1) 14%, transparent 20%),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.25), transparent 58%);
+  opacity: 0.95;
+}
+
+.fah-coin-celebration-coin--big .fah-coin-celebration-face::before {
+  content: "";
+  position: absolute;
+  inset: 14%;
+  border-radius: 999px;
+  border: 1px solid rgba(180, 83, 9, 0.2);
+  box-shadow: inset 0 0 0 8px rgba(255, 255, 255, 0.08);
+}
+
+.fah-coin-celebration-coin--big .fah-coin-celebration-face::after {
+  content: "";
+  position: absolute;
+  inset: 21%;
+  border-radius: 999px;
+  border: 1px solid rgba(180, 83, 9, 0.12);
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.18), transparent 62%);
+}
+
+.fah-coin-celebration-title {
+  margin-top: 1.25rem;
+  text-align: center;
+  color: #ecfccb;
+  text-shadow: 0 10px 22px rgba(15, 23, 42, 0.32);
+}
+
+.fah-coin-celebration-title strong {
+  display: block;
+  font-size: clamp(1.25rem, 4vw, 2rem);
+  line-height: 1.1;
+}
+
+.fah-coin-celebration-title span {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: clamp(0.85rem, 2.4vw, 1rem);
+  opacity: 0.9;
+}
+
+.fah-coin-celebration-confetti {
+  position: absolute;
+  z-index: 10000;
+  top: 12%;
+  left: 50%;
+  width: 10px;
+  height: 20px;
+  border-radius: 3px;
+  background: var(--confetti-color);
+  animation: fah-confetti-pop 3.3s linear forwards;
+  animation-delay: var(--confetti-delay);
+  transform-origin: center;
+}
+
+.fah-coin-celebration-popper {
+  position: absolute;
+  z-index: 10000;
+  bottom: 20%;
+  width: min(30vw, 220px);
+  height: min(30vw, 220px);
+  border-radius: 40px;
+  opacity: 0.72;
+  background:
+    radial-gradient(circle at 22% 25%, rgba(255, 255, 255, 0.35), transparent 10%),
+    linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(16, 185, 129, 0.12), rgba(59, 130, 246, 0.14));
+  clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+  filter: blur(0.2px);
+}
+
+.fah-coin-celebration-popper--left {
+  left: -4%;
+  transform: rotate(-18deg);
+}
+
+.fah-coin-celebration-popper--right {
+  right: -4%;
+  transform: rotate(18deg) scaleX(-1);
+}
+
+.fah-coin-celebration-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  pointer-events: none;
+  background: radial-gradient(circle at 20% 20%, rgba(16, 185, 129, 0.16), transparent 40%),
+    radial-gradient(circle at 80% 25%, rgba(245, 158, 11, 0.18), transparent 42%),
+    rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(3px);
+}
+
+.fah-coin-celebration-coin {
+  position: absolute;
+  top: -72px;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid rgba(217, 119, 6, 0.45);
+  background: radial-gradient(circle at 28% 28%, #fef3c7 0%, #f59e0b 58%, #b45309 100%);
+  box-shadow: 0 10px 18px rgba(120, 53, 15, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(120, 53, 15, 0.95);
+  font-weight: 700;
+  font-size: 12px;
+  animation: fah-coin-fall 1.95s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.fah-coin-celebration-card {
+  animation: fah-celebration-card 1.95s ease forwards;
 }

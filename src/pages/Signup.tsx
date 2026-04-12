@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Mail, Lock, User, ArrowRight, Phone, ShieldCheck, Clock } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Mail, Lock, User, ArrowRight, Phone, ShieldCheck, Clock, Gift } from "lucide-react";
 import {
   isCollegeEmail,
   sanitizePhone,
@@ -16,6 +16,7 @@ const years = ["1st Year", "2nd Year", "3rd Year", "4th Year", "MBA/PhD"];
 
 const Signup = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [step, setStep] = useState<"details" | "otp">("details");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -23,11 +24,22 @@ const Signup = () => {
   const [branch, setBranch] = useState("");
   const [year, setYear] = useState("");
   const [password, setPassword] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [resendAfterTime, setResendAfterTime] = useState<number | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
+
+  useEffect(() => {
+    const referralFromLink =
+      searchParams.get("ref") || searchParams.get("code") || searchParams.get("referral");
+    if (!referralFromLink) {
+      return;
+    }
+
+    setReferralCode(referralFromLink.trim().toUpperCase());
+  }, [searchParams]);
 
   // Countdown timer effect
   useEffect(() => {
@@ -56,11 +68,13 @@ const Signup = () => {
 
     if (!name.trim()) {
       setError("Please enter your full name.");
+      setIsLoading(false);
       return;
     }
 
     if (!isCollegeEmail(normalizedEmail)) {
       setError("Only Chitkara University email IDs (@chitkara.edu.in or @chitkarauniversity.edu.in) are allowed.");
+      setIsLoading(false);
       return;
     }
 
@@ -91,6 +105,7 @@ const Signup = () => {
         password,
         branch,
         year,
+        referralCode: referralCode.trim() ? referralCode.trim().toUpperCase() : undefined,
       }),
     })
       .then((response) => {
@@ -252,6 +267,23 @@ const Signup = () => {
                 className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-card border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 text-sm"
                 required
               />
+            </div>
+
+            <div className="rounded-xl border border-border bg-card/60 p-3">
+              <p className="mb-2 text-xs font-semibold text-muted-foreground">Do you have a referral code?</p>
+              <div className="relative">
+                <Gift className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Type referral code (optional)"
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 text-sm"
+                />
+              </div>
+              {searchParams.get("ref") || searchParams.get("code") || searchParams.get("referral") ? (
+                <p className="mt-2 text-[11px] text-emerald-700">Referral link detected. Code auto-filled.</p>
+              ) : null}
             </div>
           </>
         )}
