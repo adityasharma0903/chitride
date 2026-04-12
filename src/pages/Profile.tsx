@@ -567,6 +567,31 @@ setCurrentUserFromAccount({
                 ) : null}
 
                 <div className="rounded-xl border border-border p-3">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground">Referral Progress</p>
+                      <p className="text-[10px] text-muted-foreground">Earn rewards for up to 3 friends who join using your code.</p>
+                    </div>
+                    <div className="bg-primary/10 px-2 py-1 rounded-lg text-xs font-bold text-primary">
+                      {walletData.referral.invitesRewarded} / 3
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2 mb-1">
+                    {[1, 2, 3].map((i) => (
+                      <div 
+                        key={i}
+                        className={`h-2 flex-1 rounded-full transition-all duration-500 ${
+                          i <= walletData.referral.invitesRewarded 
+                            ? "bg-primary shadow-[0_0_8px_rgba(34,197,94,0.3)] scale-y-110" 
+                            : "bg-muted"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-border p-3">
                   <p className="text-xs font-semibold text-muted-foreground">Do you have a referral code? Share yours:</p>
                   <div className="mt-2 flex flex-col gap-2 md:flex-row md:items-center">
                     <div className="rounded-lg bg-card px-3 py-2 text-sm font-semibold text-foreground border border-border min-w-[170px]">
@@ -576,7 +601,7 @@ setCurrentUserFromAccount({
                       type="button"
                       onClick={() => copyText(referralCode, "Referral code copied")}
                       disabled={!referralCode}
-                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-foreground disabled:opacity-50"
+                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-foreground disabled:opacity-50 hover:bg-secondary transition-colors"
                     >
                       <Copy className="h-3.5 w-3.5" /> Copy Code
                     </button>
@@ -584,7 +609,7 @@ setCurrentUserFromAccount({
                       type="button"
                       onClick={() => copyText(referralLink, "Referral link copied")}
                       disabled={!referralLink}
-                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-foreground disabled:opacity-50"
+                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-foreground disabled:opacity-50 hover:bg-secondary transition-colors"
                     >
                       <Copy className="h-3.5 w-3.5" /> Copy Link
                     </button>
@@ -592,7 +617,7 @@ setCurrentUserFromAccount({
                       type="button"
                       onClick={handleShareReferral}
                       disabled={!referralLink}
-                      className="inline-flex items-center justify-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                      className="inline-flex items-center justify-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50 hover:opacity-90 transition-opacity"
                     >
                       <Share2 className="h-3.5 w-3.5" /> Share
                     </button>
