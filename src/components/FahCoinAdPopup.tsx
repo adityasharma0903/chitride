@@ -19,10 +19,6 @@ const FahCoinAdPopup: React.FC<FahCoinAdPopupProps> = ({ onClose }) => {
       <div 
         className={`relative w-full max-w-sm rounded-[24px] bg-[#121212] border border-[#d4af37]/30 shadow-2xl overflow-hidden transition-all duration-500 transform ${isVisible ? "scale-100 opacity-100 translate-y-0" : "scale-95 opacity-0 translate-y-8"}`}
       >
-        {/* Ad Badge */}
-        <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-md px-2 py-0.5 rounded text-[9px] font-bold tracking-widest text-[#d4af37] border border-[#d4af37]/30 z-10">
-          SPONSORED
-        </div>
 
         {/* Close Button */}
         <button 
