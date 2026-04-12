@@ -55,7 +55,7 @@ const FahCoinAdPopup: React.FC<FahCoinAdPopupProps> = ({ onClose }) => {
             Unlock Real Rewards
           </h2>
           <p className="text-[#a0a0a0] text-sm mb-6 leading-relaxed">
-            Welcome to RideME! Complete your signup today to instantly receive a welcome bonus. Exchange coins direct to your bank!
+            Welcome to FahRide! Complete your signup today to instantly receive a welcome bonus. Exchange coins direct to your bank!
           </p>
 
           <div className="space-y-3 text-left bg-white/[0.03] rounded-xl p-4 border border-white/[0.05] mb-6">
